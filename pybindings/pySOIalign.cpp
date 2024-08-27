@@ -98,7 +98,7 @@ namespace py = pybind11;
  * how does this handle unresolved or broken backbone?
 */ 
 std::string make_sec_py(py::array_t<double> coords, 
-		     int len)
+		        int len)
 {
     // fill a USalign-like array, xa, from the input array, coords
     double **xa;
@@ -391,11 +391,11 @@ py::array_t<int> assign_sec_bond_py(const std::string sec, const int len)
 class alnStruct {
     public:
 	// flattened 2d array nAtoms x 3
-	py::array_t<float> coords; 
+	py::array_t<double> coords; 
 	
 	// flattened 2d k-nearest-neighbors array; expected shape is 
 	// (len * closeK_opt * 3); only created if closeK_opt >= 3
-	py::array_t<float> k_nearest;
+	py::array_t<double> k_nearest;
 	
 	// flattened 2d 2ndary struct boundaries array; expected shape is
 	// (len x 2); only needed if mm_opt == 6 (sNS method)
@@ -430,8 +430,8 @@ class alnParameters {
 
 class outputResults {
     public:
-        py::array_t<float> translation_vector; // 1d array vector for translation
-        py::array_t<float> rotation_matrix;    // flattened 3x3 matrix for rotation 
+        py::array_t<double> translation_vector; // 1d array vector for translation
+        py::array_t<double> rotation_matrix;    // flattened 3x3 matrix for rotation 
         std::string seqM;	// mapping string between aligned sequences
         std::string seqA_mobile;// aligned seq; ordered by alnment to target sequence
         std::string seqA_target;// aligned seq
@@ -569,7 +569,7 @@ outputResults runSOIalign( alnStruct& mobile_data,
     // get the buffer regions for the input array object
     py::buffer_info mobile_coords_info = mobile_data.coords.request();
     // create array filled with the pointers for the array elements
-    auto mobile_coords_ptr  = static_cast <float *>(mobile_coords_info.ptr);
+    auto mobile_coords_ptr  = static_cast <double *>(mobile_coords_info.ptr);
     // py::array_t is flattened array, port it to the 2d USalign array
     for (i = 0; i < mobile_data.len *  3; i ++)
     {
@@ -599,7 +599,7 @@ outputResults runSOIalign( alnStruct& mobile_data,
     // get the buffer regions for the input array object
     py::buffer_info mobile_k_nearest_info = mobile_data.k_nearest.request();
     // create array filled with the pointers for the array elements
-    auto mobile_k_nearest_ptr  = static_cast <float *>(mobile_k_nearest_info.ptr);
+    auto mobile_k_nearest_ptr  = static_cast <double *>(mobile_k_nearest_info.ptr);
     // py::array_t is flattened array, port it to the 2d USalign array
     for (i = 0; i < mobile_data.len * parameters.closeK_opt *  3; i ++)
     {
@@ -619,7 +619,7 @@ outputResults runSOIalign( alnStruct& mobile_data,
     // get the buffer regions for the input array object
     py::buffer_info target_coords_info = target_data.coords.request();
     // create array filled with the pointers for the array elements
-    auto target_coords_ptr  = static_cast <float *>(target_coords_info.ptr);
+    auto target_coords_ptr  = static_cast <double *>(target_coords_info.ptr);
     // py::array_t is flattened array, port it to the 2d USalign array
     for (i = 0; i < mobile_data.len *  3; i ++)
     {
@@ -649,7 +649,7 @@ outputResults runSOIalign( alnStruct& mobile_data,
     // get the buffer regions for the input array object
     py::buffer_info target_k_nearest_info = target_data.k_nearest.request();
     // create array filled with the pointers for the array elements
-    auto target_k_nearest_ptr  = static_cast <float *>(target_k_nearest_info.ptr);
+    auto target_k_nearest_ptr  = static_cast <double *>(target_k_nearest_info.ptr);
     // py::array_t is flattened array, port it to the 2d USalign array
     for (i = 0; i < target_data.len * parameters.closeK_opt *  3; i ++)
     {
@@ -708,11 +708,11 @@ outputResults runSOIalign( alnStruct& mobile_data,
     // py::array_t
     
     // define the translation array object to be filled
-    auto trans_array = py::array_t<float>(3);
+    auto trans_array = py::array_t<double>(3);
     // get the buffer regions for the array object
     py::buffer_info trans_info = trans_array.request();
     // create array filled with the pointers for the array elements
-    auto trans_ptr = static_cast <float *>(trans_info.ptr);
+    auto trans_ptr = static_cast <double *>(trans_info.ptr);
     // fill those elements 
     for (i = 0; i<3; i++)
     {
@@ -721,11 +721,11 @@ outputResults runSOIalign( alnStruct& mobile_data,
     out.translation_vector = trans_array;
 
     // define the translation array object to be filled
-    auto rot_array = py::array_t<float>(9);
+    auto rot_array = py::array_t<double>(9);
     // get the buffer regions for the array object
     py::buffer_info rot_info = rot_array.request();
     // create array filled with the pointers for the array elements
-    auto rot_ptr = static_cast <float *>(rot_info.ptr);
+    auto rot_ptr = static_cast <double *>(rot_info.ptr);
     // fill those elements 
     for (i = 0; i<3; i++)
     {
@@ -824,8 +824,8 @@ PYBIND11_MODULE(pySOIalign, m) {
 	  py::arg("len"));
 
     py::class_<alnStruct>(m, "alnStruct")
-	.def(py::init<py::array_t<float>, 
-		      py::array_t<float>, 
+	.def(py::init<py::array_t<double>, 
+		      py::array_t<double>, 
 		      py::array_t<int>, 
 		      std::string, 
 		      std::string, 
@@ -858,8 +858,8 @@ PYBIND11_MODULE(pySOIalign, m) {
 	.def_readwrite("fast_opt", &alnParameters::fast_opt);
 
     py::class_<outputResults>(m, "outputResults")
-	.def(py::init<py::array_t<float>,
-		      py::array_t<float>,
+	.def(py::init<py::array_t<double>,
+		      py::array_t<double>,
 		      std::string,
 		      std::string,
 		      std::string,
