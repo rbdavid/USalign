@@ -196,23 +196,16 @@ py::array_t<double> getCloseK_py(py::array_t<double> coords,
 	}
     }
 
-    //// create the USalign-like k_nearest array to return
-    //// each row is filled with the cartesian coordinates for one of the 
-    //// closeK_opt neighbors for a residue in the structure
-    //// !!! maybe this array object doesn't need to be created
-    //double **k_nearest;
-    //NewArray(&k_nearest, len*closeK_opt, 3);
+    // create the USalign-like k_nearest array to return
+    // each row is filled with the cartesian coordinates for one of the 
+    // closeK_opt neighbors for a residue in the structure
+    // !!! maybe this array object doesn't need to be created
+    double **k_nearest;
+    NewArray(&k_nearest, len*closeK_opt, 3);
     
     // create a fillable, sortable vector object to collect the distances and 
     // associated residue indices. these then get sorted to find the neighbors.
     std::vector< std::pair< double, int > > close_idx_vec(len, std::make_pair(0,0));
-    
-    // define the result array object to be filled
-    auto result = py::array_t<double>(len*closeK_opt*3);
-    // get the buffer regions for the array object
-    py::buffer_info res_info = result.request();
-    // create array filled with the pointers for the array elements
-    auto out_ptr = static_cast <double *>(res_info.ptr);
     
     // loop over each residue to find its closest neighbors
     for (i=0; i<len; i++)
@@ -233,38 +226,40 @@ py::array_t<double> getCloseK_py(py::array_t<double> coords,
 	    j=close_idx_vec[k].second;
 	    // considering the flattened result array_t, get the index
 	    idx = i*closeK_opt + k;
-            // assign the neighbor's cartesian coords to the results array elements
-	    out_ptr[idx+0] = xa[j][0];
-	    out_ptr[idx+1] = xa[j][1];
-	    out_ptr[idx+2] = xa[j][2];
-	    //// !!! for this port, maybe just go straight into the py::array_t 
-	    //// object
-	    //k_nearest[i*closeK_opt+k][0]=xa[j][0];
-            //k_nearest[i*closeK_opt+k][1]=xa[j][1];
-            //k_nearest[i*closeK_opt+k][2]=xa[j][2];
+            // assign the neighbor's cartesian coords to the k_nearest array
+	    // !!! for this port, maybe just go straight into the py::array_t 
+	    //     object
+	    k_nearest[idx][0]=xa[j][0];
+            k_nearest[idx][1]=xa[j][1];
+            k_nearest[idx][2]=xa[j][2];
         }
     }
 
-    //// loop over dimensions of the k_nearest 2d array and update the results 
-    //// array values
-    //for (i = 0; i < len*closeK_opt; ++i) 
-    //{
-    //    for (int j = 0; j < 3; ++j)
-    //    {
-    //        k = i*3 + j;
-    //        out_ptr[k] = k_nearest[i][j];
-    //    }
-    //}
+    // define the result array object to be filled
+    auto result = py::array_t<double>(len*closeK_opt*3);
+    // get the buffer regions for the array object
+    py::buffer_info res_info = result.request();
+    // create array filled with the pointers for the array elements
+    auto out_ptr = static_cast <double *>(res_info.ptr);
+    
+    // loop over dimensions of the k_nearest 2d array and update the results 
+    // array values
+    for (i = 0; i < len*closeK_opt; i++) 
+    {
+        for (j = 0; j < 3; j++)
+        {
+            k = i*3 + j;
+            out_ptr[k] = k_nearest[i][j];
+        }
+    }
 
     // clean up 
-    
     //close_idx_vec.clear();
     std::vector< std::pair< double, int> >().swap(close_idx_vec);
-    
     DeleteArray(&xa, len);
     DeleteArray(&score, len+1);
     //// maybe this array object isn't even necessary in the first place
-    //DeleteArray(&k_nearest, len*closeK_opt);
+    DeleteArray(&k_nearest, len*closeK_opt);
 
     return result;
 }
@@ -290,24 +285,26 @@ py::array_t<int> assign_sec_bond_py(const std::string sec, const int len)
     // loop over all residues
     for (i=0; i<len; i++)
     {
-        // get the residue's 2ndary structure character
+	// get the residue's 2ndary structure character
 	ss=sec[i];
         // fill the sec_bond[i] vectors with -1s...
-	sec_bond[i][0]=sec_bond[i][1]=-1;
+	sec_bond[i][0] = sec_bond[i][1] = -1;
 	// check if 2ndary structure changes between prev and current and the
 	// change isn't from turn to coil or vice-versa
+	// !!! this code currently only considers helix and sheet protein 2ndary
+	//     structure elements... why even include the T/C checks?
         if (ss!=prev_ss && !(ss=='C' && prev_ss=='T') 
                         && !(ss=='T' && prev_ss=='C'))
         {
             // if this isn't the first residue in the 2ndary structure range
-	    if (starti>=0) // previous SSE end
+	    if (starti >= 0) // previous SSE end
             {
                 // assign residue i as the end
 		endi=i;
                 // loop over residues in the 2ndary structure range and fill
 		// the residue's elements in sec_bond with the start and end 
 		// indices
-		for (j=starti;j<endi;j++)
+		for (j = starti; j < endi; j++)
                 {
                     sec_bond[j][0]=starti;
                     sec_bond[j][1]=endi;
@@ -315,27 +312,33 @@ py::array_t<int> assign_sec_bond_py(const std::string sec, const int len)
             }
 	    // check to see if the residue is a helix, sheet, or some RNA 
 	    // strand type (ignore the RNA stuff for now)
-            if (ss=='H' || ss=='E' || ss=='<' || ss=='>') starti=i;
+            if (ss=='H' || ss=='E' || ss=='<' || ss=='>') 
+	    {
+		starti=i;
+	    }
             // otherwise, continue as if not part of a 2ndary structure
-	    else starti=-1;
+	    else 
+	    {
+		starti=-1;
+	    }
         }
         // update prev_ss
-	prev_ss=sec[i];
+	prev_ss = sec[i];
     }
     // if we hit the end of the structure and starti still == -1, then we need
     // to include this 2ndary structure feature
-    if (starti>=0) // previous SSE end
+    if (starti >= 0) // previous SSE end
     {
         endi=i;
-        for (j=starti;j<endi;j++)
+        for (j = starti; j < endi; j++)
         {
-            sec_bond[j][0]=starti;
-            sec_bond[j][1]=endi;
+            sec_bond[j][0] = starti;
+            sec_bond[j][1] = endi;
         }
     }
     // checking for single-residue 2ndary structure features; ignoring them if
     // found
-    for (i=0;i<len;i++) 
+    for (i = 0; i < len; i++) 
     {
 	if (sec_bond[i][1]-sec_bond[i][0]==1)
 	{
@@ -351,7 +354,7 @@ py::array_t<int> assign_sec_bond_py(const std::string sec, const int len)
     // get the buffer regions for the array object
     py::buffer_info res_info = result.request();
     // create array filled with the pointers for the array elements
-    auto out_ptr = static_cast <double *>(res_info.ptr);
+    auto out_ptr = static_cast <int *>(res_info.ptr);
 
     // loop over dimensions of the k_nearest 2d array and update the results 
     // array values
@@ -365,7 +368,7 @@ py::array_t<int> assign_sec_bond_py(const std::string sec, const int len)
     }
 
     // clean up
-    //DeleteArray(&sec_bond, len);
+    DeleteArray(&sec_bond, len);
 
     return result;
 }
