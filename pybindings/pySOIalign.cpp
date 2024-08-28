@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <iostream>
 
 #include "SOIalign.h"	// 
 
@@ -195,7 +196,7 @@ py::array_t<double> getCloseK_py(py::array_t<double> coords,
 	    score[j][i] = score[i][j] = dist(xa[i], xa[j]);
 	}
     }
-
+    
     // create the USalign-like k_nearest array to return
     // each row is filled with the cartesian coordinates for one of the 
     // closeK_opt neighbors for a residue in the structure
@@ -257,7 +258,7 @@ py::array_t<double> getCloseK_py(py::array_t<double> coords,
     //close_idx_vec.clear();
     std::vector< std::pair< double, int> >().swap(close_idx_vec);
     DeleteArray(&xa, len);
-    DeleteArray(&score, len+1);
+    DeleteArray(&score, len);
     //// maybe this array object isn't even necessary in the first place
     DeleteArray(&k_nearest, len*closeK_opt);
 
@@ -556,7 +557,7 @@ outputResults runSOIalign( alnStruct& mobile_data,
     int n_ali=0;
     int n_ali8=0;
     
-    
+
     // hardcode some default parameters to avoid their implementation...
     // !!! design choice to still input these variables into the 
     //     SOIalign_main() call.
