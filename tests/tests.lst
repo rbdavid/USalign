@@ -1,7 +1,6 @@
+# format: struct1 struct2 mm_opt closeK_opt
+# USalign closeK_opt == 0 if mm_opt != 5, else == 5
 #### circular permutation examples
 ## all atoms of a single chain from structures
-data/2pel_chainA.pdb data/3cna_chainA.pdb 5
-data/2pel_chainA.pdb data/3cna_chainA.pdb 6
-## only CA atoms of a single chain from structures
-data/2pel_chainA_onlyCAs.pdb data/3cna_chainA_onlyCAs.pdb 5
-data/2pel_chainA_onlyCAs.pdb data/3cna_chainA_onlyCAs.pdb 6
+data/2pel_chainA.pdb data/3cna_chainA.pdb 6 0 
+data/2pel_chainA.pdb data/3cna_chainA.pdb 5 5

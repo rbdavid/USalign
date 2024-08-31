@@ -113,6 +113,7 @@ int main(int argc, char* argv[])
 	    printf("[%6.3f,%6.3f,%6.3f]",xk[i][0], xk[i][1], xk[i][2]);
 	    if (i != len*closeK_opt-1) printf(",");
 	}
+        printf("]\n");
     }
 
     // clean up
