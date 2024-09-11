@@ -1,3 +1,6 @@
+# executable files created w/in the repo
+preprocessing_tests
+
 # compiled python code
 *.pyc
 
