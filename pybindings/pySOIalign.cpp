@@ -271,7 +271,8 @@ py::array_t<double> getCloseK_py(py::array_t<double> coords,
  * !!! only used for sNS alignment (mm_opt==6)
  *
 */ 
-py::array_t<int> assign_sec_bond_py(const std::string sec, const int len)
+py::array_t<int> assign_sec_bond_py(const std::string sec, 
+				    const int len)
 {
     //declare the USalign-like array of shape (len x 2)
     int **sec_bond;
