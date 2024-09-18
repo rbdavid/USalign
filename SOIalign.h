@@ -444,7 +444,9 @@ double SOI_iter(double **r1, double **r2, double **xtm, double **ytm,
         tmscore_old=tmscore;
         do_rotation(xa, xt, xlen, t, u);
         SOI_super2score(xt, ya, xlen, ylen, score, d0, score_d8);
+	cout << iteration << ", " << rmsd << ", " << tmscore << ", " << tmscore_max <<  "\n";
     }// for iteration
+    cout << iteration << ", " << rmsd << ", " << tmscore << ", " << tmscore_max<< "\n";
     
     delete []invmap;
     return tmscore_max;
@@ -683,9 +685,12 @@ int SOIalign_main(double **xa, double **ya,
     do_rotation(xa, xt, xlen, t0, u0);
     SOI_super2score(xt, ya, xlen, ylen, score, d0, score_d8);
     for (i=0;i<xlen;i++) for (j=0;j<ylen;j++) scoret[j+1][i+1]=score[i+1][j+1];
+    
+    cout << "1st SOI_iter call\n";
     TMmax=SOI_iter(r1, r2, xtm, ytm, xt, score, path, val, xa, ya,
         xlen, ylen, t0, u0, invmap0, iteration_max,
         local_d0_search, Lnorm, d0, score_d8, secx_bond, secy_bond, mm_opt, true);
+    cout << "\n2nd SOI_iter call\n";
     TM   =SOI_iter(r2, r1, ytm, xtm, yt,scoret, path, val, ya, xa,
         ylen, xlen, t0, u0, fwdmap0, iteration_max,
         local_d0_search, Lnorm, d0, score_d8, secy_bond, secx_bond, mm_opt, true);
@@ -713,6 +718,7 @@ int SOIalign_main(double **xa, double **ya,
 
         SOI_assign2super(r1, r2, xtm, ytm, xt, xa, ya,
             xlen, ylen, t, u, invmap, local_d0_search, Lnorm, d0, score_d8);
+    	cout << "\nif closeK_opt >= 3, 3rd SOI_iter call\n";
         TM=SOI_iter(r1, r2, xtm, ytm, xt, score, path, val, xa, ya,
             xlen, ylen, t, u, invmap, iteration_max,
             local_d0_search, Lnorm, d0, score_d8, secx_bond, secy_bond, mm_opt);
@@ -727,6 +733,7 @@ int SOIalign_main(double **xa, double **ya,
         soi_egs(scoret, ylen, xlen, fwdmap0, secy_bond, secx_bond, mm_opt);
         SOI_assign2super(r2, r1, ytm, xtm, yt, ya, xa,
             ylen, xlen, t, u, fwdmap0, local_d0_search, Lnorm, d0, score_d8);
+    	cout << "\nif closeK_opt >= 3, 4th SOI_iter call\n";
         TM=SOI_iter(r2, r1, ytm, xtm, yt, scoret, path, val, ya, xa, ylen, xlen, t, u,
             fwdmap0, iteration_max, local_d0_search, Lnorm, d0, score_d8,secy_bond, secx_bond, mm_opt);
         if (TM>TMmax)
