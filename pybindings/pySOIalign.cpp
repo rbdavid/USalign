@@ -416,16 +416,9 @@ class alnStruct {
 class alnParameters {
     public:
         // default set to -1 and then to 0 or 5 depending on mm_opt
-	int closeK_opt = 0;
-        int molec_types = -2; // -2 corresponds to a protein-protein alignment
+	int closeK_opt;
+        int molec_types; // ... -1*(xlen+ylen)
 	int mm_opt; // SOI alignment switch; 5 for fNS, 6 for sNS
-	//int i_opt = 0; // > 0 if wish to apply an initial alignment
-	int a_opt = 0; // > 0 if wish normalize TMscore by avg len of structs
-	bool u_opt = false; // true if wish normalize TMscore by Lnorm_ass value
-	double Lnorm_ass = 0; // only used if u_opt = true
-	bool d_opt = false; // true if wish to use d0_scale for calc of pair weights
-	double d0_scale = 0; // only used if d_opt
-	bool fast_opt = false; // true if wish for fast but inaccurate alnment
 };
 
 
@@ -445,8 +438,8 @@ class outputResults {
        	double TM4, d0u; // only used if u_opt
 	double TM5, d0_scale; // only used if d_opt
 	double rmsd0; // final rmsd from Kabsch algo
-        double d0_out = 5.0; // norm d0 value; also signify mapping in sequence alignment
-	double Liden = 0;    // number of mapped residues w/ identical res type
+        double d0_out; // norm d0 value; also signify mapping in sequence alignment
+	double Liden;    // number of mapped residues w/ identical res type
         int n_ali8; // number of residues w/in d0_out
 	int L_ali;   // n residues aligned, can include d > d0 pairs...
 	double d0_mobile, d0_target; // d0 values calc'd when norming by 1 struct
@@ -551,12 +544,12 @@ outputResults runSOIalign( alnStruct& mobile_data,
     double d0A, d0B, d0u, d0a;
     double d0_out=5.0;
     std::string seqM, seqxA, seqyA;// for output alignment
-    double rmsd0 = 0.0;
+    double rmsd0;
     int L_ali;                // Aligned length in standard_TMscore
-    double Liden=0;
+    double Liden;
     double TM_ali, rmsd_ali;  // TMscore and rmsd in standard_TMscore
-    int n_ali=0;
-    int n_ali8=0;
+    int n_ali;
+    int n_ali8;
     
 
     // hardcode some default parameters to avoid their implementation...
@@ -564,6 +557,12 @@ outputResults runSOIalign( alnStruct& mobile_data,
     //     SOIalign_main() call.
     int i_opt = 0;
     std::vector<std::string> sequence;
+    int a_opt = 0; // > 0 if wish normalize TMscore by avg len of structs
+    bool u_opt = false; // true if wish normalize TMscore by Lnorm_ass value
+    double Lnorm_ass;
+    bool d_opt = false; // true if wish to use d0_scale for calc of pair weights
+    double d0_scale;
+    bool fast_opt = false; // true if wish for fast but inaccurate alnment
 
     // convert input arrays to their USalign-like versions...
     int i,j,k;
@@ -672,7 +671,7 @@ outputResults runSOIalign( alnStruct& mobile_data,
 
     // if min of len values are too large (>1500), then do fast alignment 
     // method...
-    bool force_fast_opt=(std::min(mobile_data.len,target_data.len)>1500)?true:parameters.fast_opt;
+    bool force_fast_opt=(std::min(mobile_data.len,target_data.len)>1500)?true:fast_opt;
     
     // these lines aren't gonna work...
     int *invmap = new int[target_data.len+1];
@@ -697,9 +696,9 @@ outputResults runSOIalign( alnStruct& mobile_data,
 		  n_ali8,
 		  mobile_data.len, target_data.len, 
 		  sequence,
-		  parameters.Lnorm_ass, parameters.d0_scale,
+		  Lnorm_ass, d0_scale,
 		  i_opt, 
-		  parameters.a_opt, parameters.u_opt, parameters.d_opt, 
+		  a_opt, u_opt, d_opt, 
 		  force_fast_opt,
 		  parameters.molec_types, dist_list,
 		  mobile_sec_bond, target_sec_bond, parameters.mm_opt);
@@ -750,7 +749,7 @@ outputResults runSOIalign( alnStruct& mobile_data,
     // handling tm score values
     out.TM1 = TM1;
     out.TM2 = TM2;
-    if (parameters.a_opt > 0) 
+    if (a_opt > 0) 
     {
 	out.TM3 = TM3;
 	out.d0a = d0a;
@@ -761,7 +760,7 @@ outputResults runSOIalign( alnStruct& mobile_data,
         out.d0a = -1;
     }
 
-    if (parameters.u_opt > 0) 
+    if (u_opt > 0) 
     {
 	out.TM4 = TM4;
         out.d0u = d0u;
@@ -772,10 +771,10 @@ outputResults runSOIalign( alnStruct& mobile_data,
         out.d0u = -1;
     }
 
-    if (parameters.d_opt > 0) 
+    if (d_opt > 0) 
     {
 	out.TM5 = TM5;
-        out.d0_scale = parameters.d0_scale;
+        out.d0_scale = d0_scale;
     }
     else 
     {
@@ -845,22 +844,22 @@ PYBIND11_MODULE(pySOIalign, m) {
     py::class_<alnParameters>(m, "alnParameters")
 	.def(py::init<int, 
 		      int, 
-		      int, 
-		      int, 
-		      bool, 
-		      double, 
-		      bool, 
-		      double, 
-		      bool>())
+		      int>())
+		      //int, 
+		      //bool, 
+		      //double, 
+		      //bool, 
+		      //double, 
+		      //bool>())
 	.def_readwrite("closeK_opt", &alnParameters::closeK_opt)
 	.def_readwrite("molec_types", &alnParameters::molec_types)
-	.def_readwrite("mm_opt", &alnParameters::mm_opt)
-	.def_readwrite("a_opt", &alnParameters::a_opt)
-	.def_readwrite("u_opt", &alnParameters::u_opt)
-	.def_readwrite("Lnorm_ass", &alnParameters::Lnorm_ass)
-	.def_readwrite("d_opt", &alnParameters::d_opt)
-	.def_readwrite("d0_scale", &alnParameters::d0_scale)
-	.def_readwrite("fast_opt", &alnParameters::fast_opt);
+	.def_readwrite("mm_opt", &alnParameters::mm_opt);
+	//.def_readwrite("a_opt", &alnParameters::a_opt)
+	//.def_readwrite("u_opt", &alnParameters::u_opt)
+	//.def_readwrite("Lnorm_ass", &alnParameters::Lnorm_ass)
+	//.def_readwrite("d_opt", &alnParameters::d_opt)
+	//.def_readwrite("d0_scale", &alnParameters::d0_scale)
+	//.def_readwrite("fast_opt", &alnParameters::fast_opt);
 
     py::class_<outputResults>(m, "outputResults")
 	.def(py::init<py::array_t<double>,
