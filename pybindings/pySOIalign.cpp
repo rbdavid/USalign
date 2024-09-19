@@ -354,15 +354,15 @@ outputResults runSOIalign( alnStruct& mobile_data,
 
     // mobile coords
     double **mobile_coords;
-    fill_input_array(mobile_data.coords, mobile_data.len, 3, &mobile_coords)
+    fill_input_array(mobile_data.coords, mobile_data.len, 3, &mobile_coords);
     
     // mobile k_nearest array
     int **mobile_sec_bond;
-    fill_input_array(mobile_data.sec_bond, mobile_data.len, 2, &mobile_sec_bond)
+    fill_input_array(mobile_data.sec_bond, mobile_data.len, 2, &mobile_sec_bond);
     
     // mobile k_nearest array
     double **mobile_k_nearest;
-    fill_input_array(mobile_data.k_nearest, mobile_data.len * mobile_data.k_nearest, 3, &mobile_k_nearest)
+    fill_input_array(mobile_data.k_nearest, mobile_data.len * parameters.closeK_opt, 3, &mobile_k_nearest);
   
     // convert std::string to c-like char pointers
     char *mobile_seq = mobile_data.seq.data();
@@ -370,15 +370,15 @@ outputResults runSOIalign( alnStruct& mobile_data,
 
     // target coords
     double **target_coords;
-    fill_input_array(target_data.coords, target_data.len, 3, &target_coords)
+    fill_input_array(target_data.coords, target_data.len, 3, &target_coords);
     
     // target k_nearest array
     int **target_sec_bond;
-    fill_input_array(target_data.sec_bond, target_data.len, 2, &target_sec_bond)
+    fill_input_array(target_data.sec_bond, target_data.len, 2, &target_sec_bond);
     
     // target k_nearest array
     double **target_k_nearest;
-    fill_input_array(target_data.k_nearest, target_data.len * target_data.k_nearest, 3, &target_k_nearest)
+    fill_input_array(target_data.k_nearest, target_data.len * parameters.closeK_opt, 3, &target_k_nearest);
     
     // convert std::string to c-like char pointers
     char *target_seq = target_data.seq.data();
@@ -389,7 +389,7 @@ outputResults runSOIalign( alnStruct& mobile_data,
 
     // if min of len values are too large (>1500), then do fast alignment 
     // method...
-    bool force_fast_opt=(std::min(mobile_data.len,target_data.len)>1500)?true:parameters.fast_opt;
+    bool force_fast_opt=(std::min(mobile_data.len,target_data.len)>1500)?true:fast_opt;
     
     // these lines aren't gonna work...
     int *invmap = new int[target_data.len+1];
@@ -440,7 +440,20 @@ outputResults runSOIalign( alnStruct& mobile_data,
     out.translation_vector = trans_array;
 
     // gather the rotation array into a flat numpy array
-    py::array_t<double> rot_array = fill_output_array(&u0, 3, 3);
+    auto rot_array = py::array_t<double>(9);
+    // get the buffer regions for the array object
+    py::buffer_info rot_info = rot_array.request();
+    // create array filled with the pointers for the array elements
+    auto rot_ptr = static_cast <double *>(rot_info.ptr);
+    // fill those elements 
+    for (i = 0; i<3; i++)
+    {
+	for (int j = 0; j<3; j++)
+	{
+	    k = i*3 + j; 
+            rot_ptr[k] = u0[i][j];
+	}
+    }
     out.rotation_matrix = rot_array;
 
     // seq results are char* so need to convert it to a std::string
@@ -451,7 +464,7 @@ outputResults runSOIalign( alnStruct& mobile_data,
     // handling tm score values
     out.TM1 = TM1;
     out.TM2 = TM2;
-    if (parameters.a_opt > 0) 
+    if (a_opt > 0) 
     {
 	out.TM3 = TM3;
 	out.d0a = d0a;
@@ -462,7 +475,7 @@ outputResults runSOIalign( alnStruct& mobile_data,
         out.d0a = -1;
     }
 
-    if (parameters.u_opt > 0) 
+    if (u_opt > 0) 
     {
 	out.TM4 = TM4;
         out.d0u = d0u;
@@ -473,10 +486,10 @@ outputResults runSOIalign( alnStruct& mobile_data,
         out.d0u = -1;
     }
 
-    if (parameters.d_opt > 0) 
+    if (d_opt > 0) 
     {
 	out.TM5 = TM5;
-        out.d0_scale = parameters.d0_scale;
+        out.d0_scale = d0_scale;
     }
     else 
     {
@@ -515,17 +528,20 @@ PYBIND11_MODULE(pySOIalign, m) {
 	  "function to assign 2ndary structure character to each residue in the structure",
 	  py::arg("coords"), 
 	  py::arg("len"));
+
     m.def("wrap_getCloseK",
 	  &wrap_getCloseK,
 	  "function to determine nearest neighbors for each residue",
 	  py::arg("coords"), 
 	  py::arg("len"),
 	  py::arg("closeK_opt"));
+    
     m.def("wrap_assign_sec_bond",
 	  &wrap_assign_sec_bond,
 	  "function to identify the boundaries of large helix/sheet 2ndary structure elements",
 	  py::arg("sec"), 
 	  py::arg("len"));
+    
     py::class_<alnStruct>(m, "alnStruct")
 	.def(py::init<py::array_t<double>, 
 		      py::array_t<double>, 
@@ -543,22 +559,10 @@ PYBIND11_MODULE(pySOIalign, m) {
     py::class_<alnParameters>(m, "alnParameters")
 	.def(py::init<int, 
 		      int, 
-		      int, 
-		      int, 
-		      bool, 
-		      double, 
-		      bool, 
-		      double, 
-		      bool>())
+		      int>())
 	.def_readwrite("closeK_opt", &alnParameters::closeK_opt)
 	.def_readwrite("molec_types", &alnParameters::molec_types)
-	.def_readwrite("mm_opt", &alnParameters::mm_opt)
-	.def_readwrite("a_opt", &alnParameters::a_opt)
-	.def_readwrite("u_opt", &alnParameters::u_opt)
-	.def_readwrite("Lnorm_ass", &alnParameters::Lnorm_ass)
-	.def_readwrite("d_opt", &alnParameters::d_opt)
-	.def_readwrite("d0_scale", &alnParameters::d0_scale)
-	.def_readwrite("fast_opt", &alnParameters::fast_opt);
+	.def_readwrite("mm_opt", &alnParameters::mm_opt);
 
     py::class_<outputResults>(m, "outputResults")
 	.def(py::init<py::array_t<double>,
@@ -609,4 +613,4 @@ PYBIND11_MODULE(pySOIalign, m) {
 	  py::arg("target_data"),
 	  py::arg("parameters"),
 	  py::return_value_policy::copy);
-
+}
