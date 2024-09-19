@@ -18,75 +18,54 @@ namespace py = pybind11;
  * they are called within the ported code
  ****************************************************************************/
 
-/* creates an array object of type template class A with length of Narray1
- * then loops over those rows to create a subarray of type template class A
- * of length Narray2
- * PULLED DIRECTLY FROM USALIGN basic_fun.cpp file
- */ 
-//template <class A> void NewArray(A *** array, int Narray1, int Narray2)
-//{
-//    *array=new A* [Narray1];
-//    for(int i=0; i<Narray1; i++) *(*array+i)=new A [Narray2];
-//}
-//
-//// clean up the 2d matrix; have to loop through rows (Narray) since each row is 
-//// itself an array object
-//// PULLED DIRECTLY FROM USALIGN basic_fun.cpp file
-//template <class A> void DeleteArray(A *** array, int Narray)
-//{
-//    for(int i=0; i<Narray; i++)
-//        if(*(*array+i)) delete [] *(*array+i);
-//    if(Narray) delete [] (*array);
-//    (*array)=NULL;
-//}
-//
-//// need to include the dist function from basic_fun.h for make_sec()
-//// actually returns the dist**2
-//double dist(double x[3], double y[3])
-//{
-//    double d1=x[0]-y[0];
-//    double d2=x[1]-y[1];
-//    double d3=x[2]-y[2];
-// 
-//    return (d1*d1 + d2*d2 + d3*d3);
-//}
-//
-///* secondary structure assignment for protein:
-// * 1->coil, 2->helix, 3->turn, 4->strand 
-// * for the set of distances provided, return a 2ndary structure character
-// */
-//char sec_str(double dis13, double dis14, double dis15,
-//            double dis24, double dis25, double dis35)
-//{
-//    char s='C';
-//    
-//    double delta=2.1;
-//    if (fabs(dis15-6.37)<delta && fabs(dis14-5.18)<delta && 
-//        fabs(dis25-5.18)<delta && fabs(dis13-5.45)<delta &&
-//        fabs(dis24-5.45)<delta && fabs(dis35-5.45)<delta)
-//    {
-//        s='H'; //helix                        
-//        return s;
-//    }
-//
-//    delta=1.42;
-//    if (fabs(dis15-13  )<delta && fabs(dis14-10.4)<delta &&
-//        fabs(dis25-10.4)<delta && fabs(dis13-6.1 )<delta &&
-//        fabs(dis24-6.1 )<delta && fabs(dis35-6.1 )<delta)
-//    {
-//        s='E'; //strand
-//        return s;
-//    }
-//
-//    if (dis15 < 8) s='T'; //turn
-//    return s;
-//}
 
 
 /****************************************************************************
  * FUNCTIONS TO PORT TO PYTHON
  * these are still important to the the ports
  ****************************************************************************/
+
+
+/*
+ * create a wrapper function around the original USalign make_sec() function
+ * specifically, TMalign.h lines 765 to 792
+ */
+std::string wrap_make_sec(py::array_t<double> coords,
+		   	  int len)
+{
+    // fill a USalign-like array, xa, from the input array, coords
+    double **xa;
+    NewArray(&xa, len, 3);
+   
+    // get the buffer regions for the input array object
+    py::buffer_info coords_info = coords.request();
+    // create array filled with the pointers for the array elements
+    auto inp_ptr  = static_cast <double *>(coords_info.ptr);
+   
+    // loop over input array dimensions and assign values to the USalign-like
+    // array object
+    int ndims = len * 3; // number of elements in the coords array
+    int i; // index from ndims
+    int j; // row index
+    int k; // column index
+    for (i = 0; i < ndims; i++) 
+    {
+        j = i / 3;
+	k = i % 3;
+	// fill USalign-like array, xa
+	xa[j][k] = inp_ptr[i];
+    }
+    
+    // void make_sec(double **x, int len, char *sec)
+    // make_sec(xa, xlen, secx)
+    char *sec;
+    sec = new char[len + 1];
+    //std::string sec(len, 'C');
+    make_sec(xa, len, sec);
+    std::string str(sec);
+
+    return sec;
+}
 
 /*
  * port the USalign function make_sec(); specifically the _three_ argument 
@@ -150,6 +129,63 @@ std::string make_sec_py(py::array_t<double> coords,
     DeleteArray(&xa, len);
 
     return sec;
+}
+
+
+/*
+ * create a wrapper function around the original SOIalign getCloseK() function
+ * specifically, SOIalign.h lines 58 to 90
+ */
+py::array_t<double> wrap_getCloseK(py::array_t<double> coords,
+				   const int len,
+				   const int closeK_opt)
+{
+    // fill a USalign-like array, xa, from the input array, coords
+    double **xa;
+    NewArray(&xa, len, 3);
+   
+    // get the buffer regions for the input array object
+    py::buffer_info coords_info = coords.request();
+    // create array filled with the pointers for the array elements
+    auto inp_ptr  = static_cast <double *>(coords_info.ptr);
+   
+    // loop over input array dimensions and assign values to the USalign-like
+    // array object
+    int ndims = len * 3; // used to loop over indices of the coords array
+    int i, j, k, idx; // index from ndims, row index, column index, flat index
+    for (i = 0; i < ndims; i++) 
+    {
+        j = i / 3;
+	k = i % 3;
+	// fill USalign-like array, xa
+	xa[j][k] = inp_ptr[i];
+    }
+
+    double **xk;
+    NewArray(&xk, len*closeK_opt, 3);
+
+    // void getCloseK(double **xa, const int len, const int closeK_opt, double **xk)
+    getCloseK(xa, len, closeK_opt, xk);
+
+    // define the result array object to be filled
+    auto result = py::array_t<double>(len*closeK_opt*3);
+    // get the buffer regions for the array object
+    py::buffer_info res_info = result.request();
+    // create array filled with the pointers for the array elements
+    auto out_ptr = static_cast <double *>(res_info.ptr);
+    
+    // loop over dimensions of the k_nearest 2d array and update the results 
+    // array values
+    for (i = 0; i < len*closeK_opt; i++) 
+    {
+        for (j = 0; j < 3; j++)
+        {
+            k = i*3 + j;
+            out_ptr[k] = xk[i][j];
+        }
+    }
+    
+    return result;
 }
 
 
@@ -261,6 +297,47 @@ py::array_t<double> getCloseK_py(py::array_t<double> coords,
     DeleteArray(&score, len);
     //// maybe this array object isn't even necessary in the first place
     DeleteArray(&k_nearest, len*closeK_opt);
+
+    return result;
+}
+
+
+/*
+ * create a wrapper function around the original SOIalign assign_sec_bond() function
+ * specifically, SOIalign.h lines 17 to 57
+ */
+py::array_t<int> wrap_assign_sec_bond(const std::string sec, const int len)
+{
+    //declare the USalign-like array of shape (len x 2)
+    int **sec_bond;
+    NewArray(&sec_bond, len, 2);
+    assign_sec_bond(sec_bond, sec.c_str(), len);
+
+    // sec_bond is now filled with (len x 2) ints associated with start,stop 
+    // residues; convert it to a py::array_t<int>
+    
+    // define the result array object to be filled
+    auto result = py::array_t<int>(len*2);
+    // get the buffer regions for the array object
+    py::buffer_info res_info = result.request();
+    // create array filled with the pointers for the array elements
+    auto out_ptr = static_cast <int *>(res_info.ptr);
+
+    int i, j, k; // index from ndims, row index, column index
+    
+    // loop over dimensions of the k_nearest 2d array and update the results 
+    // array values
+    for (i = 0; i < len; ++i) 
+    {
+        for (j = 0; j < 2; ++j)
+	{
+	    k = i*2 + j;
+	    out_ptr[k] = sec_bond[i][j];
+	}
+    }
+
+    // clean up
+    DeleteArray(&sec_bond, len);
 
     return result;
 }
@@ -808,6 +885,12 @@ outputResults runSOIalign( alnStruct& mobile_data,
 
 PYBIND11_MODULE(pySOIalign, m) {
     m.doc() = "pybind11 port of SOIalign_main and related functions from USalign codebase"; 
+    m.def("wrap_make_sec",
+	  &wrap_make_sec,
+	  "function to assign 2ndary structure character to each residue in the structure",
+	  py::arg("coords"), 
+	  py::arg("len"));
+    
     m.def("make_sec_py",
 	  &make_sec_py,
 	  "function to assign 2ndary structure character to each residue in the structure",
@@ -820,6 +903,19 @@ PYBIND11_MODULE(pySOIalign, m) {
 	  py::arg("coords"), 
 	  py::arg("len"),
 	  py::arg("closeK_opt"));
+
+    m.def("wrap_getCloseK",
+	  &wrap_getCloseK,
+	  "function to determine nearest neighbors for each residue",
+	  py::arg("coords"), 
+	  py::arg("len"),
+	  py::arg("closeK_opt"));
+
+    m.def("wrap_assign_sec_bond",
+	  &wrap_assign_sec_bond,
+	  "function to identify the boundaries of large helix/sheet 2ndary structure elements",
+	  py::arg("sec"), 
+	  py::arg("len"));
 
     m.def("assign_sec_bond_py",
 	  &assign_sec_bond_py,
