@@ -9,6 +9,7 @@
 *so
 
 # binary executables
+addChainID
 cif2pdb
 TMalign
 TMalignc
