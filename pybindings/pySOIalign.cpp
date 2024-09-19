@@ -355,99 +355,32 @@ outputResults runSOIalign( alnStruct& mobile_data,
 
     // mobile coords
     double **mobile_coords;
-    NewArray(&mobile_coords, mobile_data.len, 3);
-    // get the buffer regions for the input array object
-    py::buffer_info mobile_coords_info = mobile_data.coords.request();
-    // create array filled with the pointers for the array elements
-    auto mobile_coords_ptr  = static_cast <double *>(mobile_coords_info.ptr);
-    // py::array_t is flattened array, port it to the 2d USalign array
-    for (i = 0; i < mobile_data.len *  3; i ++)
-    {
-	j = i / 3;
-	k = i % 3;
-	mobile_coords[j][k] = mobile_coords_ptr[i];
-    }
-   
+    fill_input_array(mobile_data.coords, mobile_data.len, 3, &mobile_coords)
+    
     // mobile k_nearest array
     int **mobile_sec_bond;
-    NewArray(&mobile_sec_bond, mobile_data.len, 2);
-    // get the buffer regions for the input array object
-    py::buffer_info mobile_sec_bond_info = mobile_data.sec_bond.request();
-    // create array filled with the pointers for the array elements
-    auto mobile_sec_bond_ptr  = static_cast <int *>(mobile_sec_bond_info.ptr);
-    // py::array_t is flattened array, port it to the 2d USalign array
-    for (i = 0; i < mobile_data.len * 2; i ++)
-    {
-	j = i / 3;
-	k = i % 2;
-	mobile_sec_bond[j][k] = mobile_sec_bond_ptr[i];
-    }
-  
+    fill_input_array(mobile_data.sec_bond, mobile_data.len, 2, &mobile_sec_bond)
+    
     // mobile k_nearest array
     double **mobile_k_nearest;
-    NewArray(&mobile_k_nearest, mobile_data.len * parameters.closeK_opt, 3);
-    // get the buffer regions for the input array object
-    py::buffer_info mobile_k_nearest_info = mobile_data.k_nearest.request();
-    // create array filled with the pointers for the array elements
-    auto mobile_k_nearest_ptr  = static_cast <double *>(mobile_k_nearest_info.ptr);
-    // py::array_t is flattened array, port it to the 2d USalign array
-    for (i = 0; i < mobile_data.len * parameters.closeK_opt *  3; i ++)
-    {
-	j = i / 3;
-	k = i % 3;
-	mobile_k_nearest[j][k] = mobile_k_nearest_ptr[i];
-    }
+    fill_input_array(mobile_data.k_nearest, mobile_data.len * mobile_data.k_nearest, 3, &mobile_k_nearest)
   
     // convert std::string to c-like char pointers
     char *mobile_seq = mobile_data.seq.data();
     char *mobile_sec = mobile_data.sec.data();
 
-    
     // target coords
     double **target_coords;
-    NewArray(&target_coords, target_data.len, 3);
-    // get the buffer regions for the input array object
-    py::buffer_info target_coords_info = target_data.coords.request();
-    // create array filled with the pointers for the array elements
-    auto target_coords_ptr  = static_cast <double *>(target_coords_info.ptr);
-    // py::array_t is flattened array, port it to the 2d USalign array
-    for (i = 0; i < mobile_data.len *  3; i ++)
-    {
-	j = i / 3;
-	k = i % 3;
-	target_coords[j][k] = target_coords_ptr[i];
-    }
-   
+    fill_input_array(target_data.coords, target_data.len, 3, &target_coords)
+    
     // target k_nearest array
     int **target_sec_bond;
-    NewArray(&target_sec_bond, target_data.len, 2);
-    // get the buffer regions for the input array object
-    py::buffer_info target_sec_bond_info = target_data.sec_bond.request();
-    // create array filled with the pointers for the array elements
-    auto target_sec_bond_ptr  = static_cast <int *>(target_sec_bond_info.ptr);
-    // py::array_t is flattened array, port it to the 2d USalign array
-    for (i = 0; i < target_data.len * 2; i ++)
-    {
-	j = i / 3;
-	k = i % 2;
-	target_sec_bond[j][k] = target_sec_bond_ptr[i];
-    }
-  
-    // mobile k_nearest array
+    fill_input_array(target_data.sec_bond, target_data.len, 2, &target_sec_bond)
+    
+    // target k_nearest array
     double **target_k_nearest;
-    NewArray(&target_k_nearest, target_data.len * parameters.closeK_opt, 3);
-    // get the buffer regions for the input array object
-    py::buffer_info target_k_nearest_info = target_data.k_nearest.request();
-    // create array filled with the pointers for the array elements
-    auto target_k_nearest_ptr  = static_cast <double *>(target_k_nearest_info.ptr);
-    // py::array_t is flattened array, port it to the 2d USalign array
-    for (i = 0; i < target_data.len * parameters.closeK_opt *  3; i ++)
-    {
-	j = i / 3;
-	k = i % 3;
-	target_k_nearest[j][k] = target_k_nearest_ptr[i];
-    }
-  
+    fill_input_array(target_data.k_nearest, target_data.len * target_data.k_nearest, 3, &target_k_nearest)
+    
     // convert std::string to c-like char pointers
     char *target_seq = target_data.seq.data();
     char *target_sec = target_data.sec.data();
