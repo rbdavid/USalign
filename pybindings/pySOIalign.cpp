@@ -18,6 +18,64 @@ namespace py = pybind11;
  * they are called within the ported code
  ****************************************************************************/
 
+// input arrays from the python-side of things are always flattened. to convert
+// to USalign-like array object (array of arrays), need to map the c-type flat 
+// array to the 2d.
+template <class A> void fill_input_array(py::array_t<double> flat_array,
+		      const int rows,
+		      const int columns,
+		      A *** array)
+{
+    // create the to-be-filled array object
+    NewArray(array, rows, columns);
+    
+    // get the buffer regions for the input array object
+    py::buffer_info flat_array_info = flat_array.request();
+    // create array filled with the pointers for the array elements
+    auto inp_ptr  = static_cast <double *>(flat_array_info.ptr);
+   
+    // loop over input array dimensions and assign values to the USalign-like
+    // array object
+    int ndims = rows * columns; // number of elements in the flat_array
+    int i, j, k; // index from ndims, row index, column index
+    for (i = 0; i < ndims; i++) 
+    {
+        j = i / columns;
+	k = i % columns;
+	// fill USalign-like array
+	(*array)[j][k] = inp_ptr[i];
+    }
+}
+
+
+// input arrays from the python-side of things are always flattened. to convert
+// to USalign-like array object (array of arrays), need to map the c-type flat 
+// array to the 2d.
+template <class A> py::array_t<double> fill_output_array(A *** array,
+		    		      			 const int rows,
+		    		      			 const int columns)
+{
+    // define the result array object to be filled
+    auto result = py::array_t<double>(rows*columns);
+    // get the buffer regions for the array object
+    py::buffer_info res_info = result.request();
+    // create array filled with the pointers for the array elements
+    auto out_ptr = static_cast <double *>(res_info.ptr);
+    
+    // loop over numpy array dimensions and assign values from the USalign-like
+    // array object to the numpy array elements
+    int ndims = rows * columns; // number of elements in the flat_array
+    int i, j, k; // index from ndims, row index, column index
+
+    for (i = 0; i < ndims; i++) 
+    {
+        j = i / columns;
+	k = i % columns;
+	// fill USalign-like array
+	out_ptr[i] = (*array)[j][k];
+    }
+    return result;
+}
 
 
 /****************************************************************************
@@ -27,7 +85,7 @@ namespace py = pybind11;
 
 
 /*
- * create a wrapper function around the original USalign make_sec() function
+ * a wrapper function around the original USalign make_sec() function
  * specifically, TMalign.h lines 765 to 792
  */
 std::string wrap_make_sec(py::array_t<double> coords,
@@ -35,105 +93,48 @@ std::string wrap_make_sec(py::array_t<double> coords,
 {
     // fill a USalign-like array, xa, from the input array, coords
     double **xa;
-    NewArray(&xa, len, 3);
-   
-    // get the buffer regions for the input array object
-    py::buffer_info coords_info = coords.request();
-    // create array filled with the pointers for the array elements
-    auto inp_ptr  = static_cast <double *>(coords_info.ptr);
-   
-    // loop over input array dimensions and assign values to the USalign-like
-    // array object
-    int ndims = len * 3; // number of elements in the coords array
-    int i; // index from ndims
-    int j; // row index
-    int k; // column index
-    for (i = 0; i < ndims; i++) 
-    {
-        j = i / 3;
-	k = i % 3;
-	// fill USalign-like array, xa
-	xa[j][k] = inp_ptr[i];
-    }
-    
-    // void make_sec(double **x, int len, char *sec)
-    // make_sec(xa, xlen, secx)
+    fill_input_array(coords, len, 3, &xa);
+
+    // prep the secondary structure string variable
     char *sec;
     sec = new char[len + 1];
-    //std::string sec(len, 'C');
+    // run the TMalign.h make_sec() (lines 765-792)
     make_sec(xa, len, sec);
+    // convert the char variable to a string, ready for the python env
     std::string str(sec);
 
-    return sec;
-}
-
-/*
- * port the USalign function make_sec(); specifically the _three_ argument 
- * version, which is specific to protein 2ndary structure calculations.
- *
- * !!! switched to using standard library <string> objects rather than char* 
- * b/c python porting did not like to compile char* to char...
- * 
- * return the string associated with the 2ndary structure prediction.
- * how does this handle unresolved or broken backbone?
-*/ 
-std::string make_sec_py(py::array_t<double> coords, 
-		        int len)
-{
-    // fill a USalign-like array, xa, from the input array, coords
-    double **xa;
-    NewArray(&xa, len, 3);
-   
-    // get the buffer regions for the input array object
-    py::buffer_info coords_info = coords.request();
-    // create array filled with the pointers for the array elements
-    auto inp_ptr  = static_cast <double *>(coords_info.ptr);
-   
-    // loop over input array dimensions and assign values to the USalign-like
-    // array object
-    int ndims = len * 3; // number of elements in the coords array
-    int i; // index from ndims
-    int j; // row index
-    int k; // column index
-    for (i = 0; i < ndims; i++) 
-    {
-        j = i / 3;
-	k = i % 3;
-	// fill USalign-like array, xa
-	xa[j][k] = inp_ptr[i];
-    }
-    
-    std::string sec(len, 'C');
-    int j1, j2, j3, j4, j5;
-    double d13, d14, d15, d24, d25, d35;
-    for(i=0; i<len; i++)
-    {
-        j1=i-2;
-        j2=i-1;
-        j3=i;
-        j4=i+1;
-        j5=i+2;        
-        
-        if(j1>=0 && j5<len)
-        {
-            d13=sqrt(dist(xa[j1], xa[j3]));
-            d14=sqrt(dist(xa[j1], xa[j4]));
-            d15=sqrt(dist(xa[j1], xa[j5]));
-            d24=sqrt(dist(xa[j2], xa[j4]));
-            d25=sqrt(dist(xa[j2], xa[j5]));
-            d35=sqrt(dist(xa[j3], xa[j5]));
-            sec[i]=sec_str(d13, d14, d15, d24, d25, d35);            
-        }    
-    } 
-
     DeleteArray(&xa, len);
-
     return sec;
 }
 
 
 /*
- * create a wrapper function around the original SOIalign getCloseK() function
+ * a wrapper function around the original SOIalign assign_sec_bond() function
+ * specifically, SOIalign.h lines 17 to 57
+ */
+py::array_t<int> wrap_assign_sec_bond(const std::string sec, const int len)
+{
+    // declare the USalign-like array of shape (len x 2)
+    int **sec_bond;
+    NewArray(&sec_bond, len, 2);
+    
+    // run SOIalign.h assign_sec_bond() (lines 17-57)
+    assign_sec_bond(sec_bond, sec.c_str(), len);
+
+    // sec_bond is now filled with (len x 2) ints associated with start,stop 
+    // residues; 
+    // convert it to a py::array_t<int>
+    py::array_t<double> results = fill_output_array(&sec_bond, len, 2);
+
+    // clean up
+    DeleteArray(&sec_bond, len);
+
+    return results;
+}
+
+
+/*
+ * a wrapper function around the original SOIalign getCloseK() function
  * specifically, SOIalign.h lines 58 to 90
  */
 py::array_t<double> wrap_getCloseK(py::array_t<double> coords,
@@ -142,314 +143,310 @@ py::array_t<double> wrap_getCloseK(py::array_t<double> coords,
 {
     // fill a USalign-like array, xa, from the input array, coords
     double **xa;
-    NewArray(&xa, len, 3);
+    fill_input_array(coords, len, 3, &xa);
    
-    // get the buffer regions for the input array object
-    py::buffer_info coords_info = coords.request();
-    // create array filled with the pointers for the array elements
-    auto inp_ptr  = static_cast <double *>(coords_info.ptr);
-   
-    // loop over input array dimensions and assign values to the USalign-like
-    // array object
-    int ndims = len * 3; // used to loop over indices of the coords array
-    int i, j, k, idx; // index from ndims, row index, column index, flat index
-    for (i = 0; i < ndims; i++) 
-    {
-        j = i / 3;
-	k = i % 3;
-	// fill USalign-like array, xa
-	xa[j][k] = inp_ptr[i];
-    }
-
+    // create the nearest-neighbor array to be filled in getCloseK() 
     double **xk;
     NewArray(&xk, len*closeK_opt, 3);
 
-    // void getCloseK(double **xa, const int len, const int closeK_opt, double **xk)
+    // fill the xk array with coordinates of all nearest-neighbors
     getCloseK(xa, len, closeK_opt, xk);
 
-    // define the result array object to be filled
-    auto result = py::array_t<double>(len*closeK_opt*3);
-    // get the buffer regions for the array object
-    py::buffer_info res_info = result.request();
-    // create array filled with the pointers for the array elements
-    auto out_ptr = static_cast <double *>(res_info.ptr);
+    // fill the results array with the nearest-neighbors data
+    py::array_t<double> results = fill_output_array(&xk, len*closeK_opt, 3);
     
-    // loop over dimensions of the k_nearest 2d array and update the results 
-    // array values
-    for (i = 0; i < len*closeK_opt; i++) 
-    {
-        for (j = 0; j < 3; j++)
-        {
-            k = i*3 + j;
-            out_ptr[k] = xk[i][j];
-        }
-    }
-    
-    return result;
-}
-
-
-/*
- * port the USalign function getCloseK()
- * !!! only used if closeK_opt > 3
-*/ 
-py::array_t<double> getCloseK_py(py::array_t<double> coords, 
-		                 const int len, 
-			         const int closeK_opt)
-{
-    // fill a USalign-like array, xa, from the input array, coords
-    double **xa;
-    NewArray(&xa, len, 3);
-   
-    // get the buffer regions for the input array object
-    py::buffer_info coords_info = coords.request();
-    // create array filled with the pointers for the array elements
-    auto inp_ptr  = static_cast <double *>(coords_info.ptr);
-   
-    // loop over input array dimensions and assign values to the USalign-like
-    // array object
-    int ndims = len * 3; // used to loop over indices of the coords array
-    int i, j, k, idx; // index from ndims, row index, column index, flat index
-    for (i = 0; i < ndims; i++) 
-    {
-        j = i / 3;
-	k = i % 3;
-	// fill USalign-like array, xa
-	xa[j][k] = inp_ptr[i];
-    }
-
-    // a temp array to be filled with the dist**2 values between atoms in the
-    // structure
-    double **score;
-    NewArray(&score, len, len);
-
-    // calc dist**2_{i,j} "score" array
-    for (i=0; i<len; i++)
-    {
-	// fill off-diag elements with the dist**2 to atom i
-        for (j=i; j<len; j++) 
-	{
-	    score[j][i] = score[i][j] = dist(xa[i], xa[j]);
-	}
-    }
-    
-    // create the USalign-like k_nearest array to return
-    // each row is filled with the cartesian coordinates for one of the 
-    // closeK_opt neighbors for a residue in the structure
-    // !!! maybe this array object doesn't need to be created
-    double **k_nearest;
-    NewArray(&k_nearest, len*closeK_opt, 3);
-    
-    // create a fillable, sortable vector object to collect the distances and 
-    // associated residue indices. these then get sorted to find the neighbors.
-    std::vector< std::pair< double, int > > close_idx_vec(len, std::make_pair(0,0));
-    
-    // loop over each residue to find its closest neighbors
-    for (i=0; i<len; i++)
-    {
-        // loop over residues, filling the close_idx_vec with distance and res
-	// idx pairs; will always find i=j; so closeK_opt should never == 1
-	for (j=0; j<len; j++)
-        {
-            close_idx_vec[j].first=score[i][j];
-            close_idx_vec[j].second=j;
-        }
-        // sort the vector by the dist**2 values
-	sort(close_idx_vec.begin(), close_idx_vec.end());
-	// loop over the k-nearest neighbor integer
-        for (k=0; k<closeK_opt; k++)
-        {
-            // get the neighbor's res index
-	    j=close_idx_vec[k].second;
-	    // considering the flattened result array_t, get the index
-	    idx = i*closeK_opt + k;
-            // assign the neighbor's cartesian coords to the k_nearest array
-	    // !!! for this port, maybe just go straight into the py::array_t 
-	    //     object
-	    k_nearest[idx][0]=xa[j][0];
-            k_nearest[idx][1]=xa[j][1];
-            k_nearest[idx][2]=xa[j][2];
-        }
-    }
-
-    // define the result array object to be filled
-    auto result = py::array_t<double>(len*closeK_opt*3);
-    // get the buffer regions for the array object
-    py::buffer_info res_info = result.request();
-    // create array filled with the pointers for the array elements
-    auto out_ptr = static_cast <double *>(res_info.ptr);
-    
-    // loop over dimensions of the k_nearest 2d array and update the results 
-    // array values
-    for (i = 0; i < len*closeK_opt; i++) 
-    {
-        for (j = 0; j < 3; j++)
-        {
-            k = i*3 + j;
-            out_ptr[k] = k_nearest[i][j];
-        }
-    }
-
-    // clean up 
-    //close_idx_vec.clear();
-    std::vector< std::pair< double, int> >().swap(close_idx_vec);
     DeleteArray(&xa, len);
-    DeleteArray(&score, len);
-    //// maybe this array object isn't even necessary in the first place
-    DeleteArray(&k_nearest, len*closeK_opt);
-
-    return result;
+    DeleteArray(&xk, len*closeK_opt);
+    return results;
 }
 
 
-/*
- * create a wrapper function around the original SOIalign assign_sec_bond() function
- * specifically, SOIalign.h lines 17 to 57
- */
-py::array_t<int> wrap_assign_sec_bond(const std::string sec, const int len)
-{
-    //declare the USalign-like array of shape (len x 2)
-    int **sec_bond;
-    NewArray(&sec_bond, len, 2);
-    assign_sec_bond(sec_bond, sec.c_str(), len);
-
-    // sec_bond is now filled with (len x 2) ints associated with start,stop 
-    // residues; convert it to a py::array_t<int>
-    
-    // define the result array object to be filled
-    auto result = py::array_t<int>(len*2);
-    // get the buffer regions for the array object
-    py::buffer_info res_info = result.request();
-    // create array filled with the pointers for the array elements
-    auto out_ptr = static_cast <int *>(res_info.ptr);
-
-    int i, j, k; // index from ndims, row index, column index
-    
-    // loop over dimensions of the k_nearest 2d array and update the results 
-    // array values
-    for (i = 0; i < len; ++i) 
-    {
-        for (j = 0; j < 2; ++j)
-	{
-	    k = i*2 + j;
-	    out_ptr[k] = sec_bond[i][j];
-	}
-    }
-
-    // clean up
-    DeleteArray(&sec_bond, len);
-
-    return result;
-}
-
-
-/*
- * port the USalign function assign_sec_bond()
- * !!! only used for sNS alignment (mm_opt==6)
- *
-*/ 
-py::array_t<int> assign_sec_bond_py(const std::string sec, const int len)
-{
-    //declare the USalign-like array of shape (len x 2)
-    int **sec_bond;
-    NewArray(&sec_bond, len, 2);
-    
-    int i, j, k;
-    int starti=-1;
-    int endi=-1;
-    char ss;
-    char prev_ss=0;
-    
-    // loop over all residues
-    for (i=0; i<len; i++)
-    {
-	// get the residue's 2ndary structure character
-	ss=sec[i];
-        // fill the sec_bond[i] vectors with -1s...
-	sec_bond[i][0] = sec_bond[i][1] = -1;
-	// check if 2ndary structure changes between prev and current and the
-	// change isn't from turn to coil or vice-versa
-	// !!! this code currently only considers helix and sheet protein 2ndary
-	//     structure elements... why even include the T/C checks?
-        if (ss!=prev_ss && !(ss=='C' && prev_ss=='T') 
-                        && !(ss=='T' && prev_ss=='C'))
-        {
-            // if this isn't the first residue in the 2ndary structure range
-	    if (starti >= 0) // previous SSE end
-            {
-                // assign residue i as the end
-		endi=i;
-                // loop over residues in the 2ndary structure range and fill
-		// the residue's elements in sec_bond with the start and end 
-		// indices
-		for (j = starti; j < endi; j++)
-                {
-                    sec_bond[j][0]=starti;
-                    sec_bond[j][1]=endi;
-                }
-            }
-	    // check to see if the residue is a helix, sheet, or some RNA 
-	    // strand type (ignore the RNA stuff for now)
-            if (ss=='H' || ss=='E' || ss=='<' || ss=='>') 
-	    {
-		starti=i;
-	    }
-            // otherwise, continue as if not part of a 2ndary structure
-	    else 
-	    {
-		starti=-1;
-	    }
-        }
-        // update prev_ss
-	prev_ss = sec[i];
-    }
-    // if we hit the end of the structure and starti still == -1, then we need
-    // to include this 2ndary structure feature
-    if (starti >= 0) // previous SSE end
-    {
-        endi=i;
-        for (j = starti; j < endi; j++)
-        {
-            sec_bond[j][0] = starti;
-            sec_bond[j][1] = endi;
-        }
-    }
-    // checking for single-residue 2ndary structure features; ignoring them if
-    // found
-    for (i = 0; i < len; i++) 
-    {
-	if (sec_bond[i][1]-sec_bond[i][0]==1)
-	{
-	    sec_bond[i][0]=sec_bond[i][1]=-1;
-	}
-    }
-
-    // sec_bond is now filled with (len x 2) ints associated with start,stop 
-    // residues; convert it to a py::array_t<int>
-    
-    // define the result array object to be filled
-    auto result = py::array_t<int>(len*2);
-    // get the buffer regions for the array object
-    py::buffer_info res_info = result.request();
-    // create array filled with the pointers for the array elements
-    auto out_ptr = static_cast <int *>(res_info.ptr);
-
-    // loop over dimensions of the k_nearest 2d array and update the results 
-    // array values
-    for (i = 0; i < len; ++i) 
-    {
-        for (int j = 0; j < 2; ++j)
-	{
-	    k = i*2 + j;
-	    out_ptr[k] = sec_bond[i][j];
-	}
-    }
-
-    // clean up
-    DeleteArray(&sec_bond, len);
-
-    return result;
-}
+///*
+// * port the USalign function make_sec(); specifically the _three_ argument 
+// * version, which is specific to protein 2ndary structure calculations.
+// *
+// * !!! switched to using standard library <string> objects rather than char* 
+// * b/c python porting did not like to compile char* to char...
+// * 
+// * return the string associated with the 2ndary structure prediction.
+// * how does this handle unresolved or broken backbone?
+//*/ 
+//std::string make_sec_py(py::array_t<double> coords, 
+//		        int len)
+//{
+//    // fill a USalign-like array, xa, from the input array, coords
+//    double **xa;
+//    //fill_input_array(coords, len, 3, &xa);
+//    NewArray(&xa, len, 3);
+//   
+//    // get the buffer regions for the input array object
+//    py::buffer_info coords_info = coords.request();
+//    // create array filled with the pointers for the array elements
+//    auto inp_ptr  = static_cast <double *>(coords_info.ptr);
+//   
+//    // loop over input array dimensions and assign values to the USalign-like
+//    // array object
+//    int ndims = len * 3; // number of elements in the coords array
+//    int i; // index from ndims
+//    int j; // row index
+//    int k; // column index
+//    for (i = 0; i < ndims; i++) 
+//    {
+//        j = i / 3;
+//        k = i % 3;
+//        // fill USalign-like array, xa
+//        xa[j][k] = inp_ptr[i];
+//    }
+//    
+//    std::string sec(len, 'C');
+//    int j1, j2, j3, j4, j5;
+//    double d13, d14, d15, d24, d25, d35;
+//    for(i=0; i<len; i++)
+//    {
+//        j1=i-2;
+//        j2=i-1;
+//        j3=i;
+//        j4=i+1;
+//        j5=i+2;        
+//        
+//        if(j1>=0 && j5<len)
+//        {
+//            d13=sqrt(dist(xa[j1], xa[j3]));
+//            d14=sqrt(dist(xa[j1], xa[j4]));
+//            d15=sqrt(dist(xa[j1], xa[j5]));
+//            d24=sqrt(dist(xa[j2], xa[j4]));
+//            d25=sqrt(dist(xa[j2], xa[j5]));
+//            d35=sqrt(dist(xa[j3], xa[j5]));
+//            sec[i]=sec_str(d13, d14, d15, d24, d25, d35);            
+//        }    
+//    } 
+//
+//    DeleteArray(&xa, len);
+//
+//    return sec;
+//}
+//
+//
+///*
+// * port the USalign function getCloseK()
+// * !!! only used if closeK_opt > 3
+//*/ 
+//py::array_t<double> getCloseK_py(py::array_t<double> coords, 
+//		                 const int len, 
+//			         const int closeK_opt)
+//{
+//    // fill a USalign-like array, xa, from the input array, coords
+//    double **xa;
+//    NewArray(&xa, len, 3);
+//   
+//    // get the buffer regions for the input array object
+//    py::buffer_info coords_info = coords.request();
+//    // create array filled with the pointers for the array elements
+//    auto inp_ptr  = static_cast <double *>(coords_info.ptr);
+//   
+//    // loop over input array dimensions and assign values to the USalign-like
+//    // array object
+//    int ndims = len * 3; // used to loop over indices of the coords array
+//    int i, j, k, idx; // index from ndims, row index, column index, flat index
+//    for (i = 0; i < ndims; i++) 
+//    {
+//        j = i / 3;
+//	k = i % 3;
+//	// fill USalign-like array, xa
+//	xa[j][k] = inp_ptr[i];
+//    }
+//
+//    // a temp array to be filled with the dist**2 values between atoms in the
+//    // structure
+//    double **score;
+//    NewArray(&score, len, len);
+//
+//    // calc dist**2_{i,j} "score" array
+//    for (i=0; i<len; i++)
+//    {
+//	// fill off-diag elements with the dist**2 to atom i
+//        for (j=i; j<len; j++) 
+//	{
+//	    score[j][i] = score[i][j] = dist(xa[i], xa[j]);
+//	}
+//    }
+//    
+//    // create the USalign-like k_nearest array to return
+//    // each row is filled with the cartesian coordinates for one of the 
+//    // closeK_opt neighbors for a residue in the structure
+//    // !!! maybe this array object doesn't need to be created
+//    double **k_nearest;
+//    NewArray(&k_nearest, len*closeK_opt, 3);
+//    
+//    // create a fillable, sortable vector object to collect the distances and 
+//    // associated residue indices. these then get sorted to find the neighbors.
+//    std::vector< std::pair< double, int > > close_idx_vec(len, std::make_pair(0,0));
+//    
+//    // loop over each residue to find its closest neighbors
+//    for (i=0; i<len; i++)
+//    {
+//        // loop over residues, filling the close_idx_vec with distance and res
+//	// idx pairs; will always find i=j; so closeK_opt should never == 1
+//	for (j=0; j<len; j++)
+//        {
+//            close_idx_vec[j].first=score[i][j];
+//            close_idx_vec[j].second=j;
+//        }
+//        // sort the vector by the dist**2 values
+//	sort(close_idx_vec.begin(), close_idx_vec.end());
+//	// loop over the k-nearest neighbor integer
+//        for (k=0; k<closeK_opt; k++)
+//        {
+//            // get the neighbor's res index
+//	    j=close_idx_vec[k].second;
+//	    // considering the flattened result array_t, get the index
+//	    idx = i*closeK_opt + k;
+//            // assign the neighbor's cartesian coords to the k_nearest array
+//	    // !!! for this port, maybe just go straight into the py::array_t 
+//	    //     object
+//	    k_nearest[idx][0]=xa[j][0];
+//            k_nearest[idx][1]=xa[j][1];
+//            k_nearest[idx][2]=xa[j][2];
+//        }
+//    }
+//
+//    // define the result array object to be filled
+//    auto result = py::array_t<double>(len*closeK_opt*3);
+//    // get the buffer regions for the array object
+//    py::buffer_info res_info = result.request();
+//    // create array filled with the pointers for the array elements
+//    auto out_ptr = static_cast <double *>(res_info.ptr);
+//    
+//    // loop over dimensions of the k_nearest 2d array and update the results 
+//    // array values
+//    for (i = 0; i < len*closeK_opt; i++) 
+//    {
+//        for (j = 0; j < 3; j++)
+//        {
+//            k = i*3 + j;
+//            out_ptr[k] = k_nearest[i][j];
+//        }
+//    }
+//
+//    // clean up 
+//    //close_idx_vec.clear();
+//    std::vector< std::pair< double, int> >().swap(close_idx_vec);
+//    DeleteArray(&xa, len);
+//    DeleteArray(&score, len);
+//    //// maybe this array object isn't even necessary in the first place
+//    DeleteArray(&k_nearest, len*closeK_opt);
+//
+//    return result;
+//}
+//
+//
+///*
+// * port the USalign function assign_sec_bond()
+// * !!! only used for sNS alignment (mm_opt==6)
+// *
+//*/ 
+//py::array_t<int> assign_sec_bond_py(const std::string sec, const int len)
+//{
+//    //declare the USalign-like array of shape (len x 2)
+//    int **sec_bond;
+//    NewArray(&sec_bond, len, 2);
+//    
+//    int i, j, k;
+//    int starti=-1;
+//    int endi=-1;
+//    char ss;
+//    char prev_ss=0;
+//    
+//    // loop over all residues
+//    for (i=0; i<len; i++)
+//    {
+//	// get the residue's 2ndary structure character
+//	ss=sec[i];
+//        // fill the sec_bond[i] vectors with -1s...
+//	sec_bond[i][0] = sec_bond[i][1] = -1;
+//	// check if 2ndary structure changes between prev and current and the
+//	// change isn't from turn to coil or vice-versa
+//	// !!! this code currently only considers helix and sheet protein 2ndary
+//	//     structure elements... why even include the T/C checks?
+//        if (ss!=prev_ss && !(ss=='C' && prev_ss=='T') 
+//                        && !(ss=='T' && prev_ss=='C'))
+//        {
+//            // if this isn't the first residue in the 2ndary structure range
+//	    if (starti >= 0) // previous SSE end
+//            {
+//                // assign residue i as the end
+//		endi=i;
+//                // loop over residues in the 2ndary structure range and fill
+//		// the residue's elements in sec_bond with the start and end 
+//		// indices
+//		for (j = starti; j < endi; j++)
+//                {
+//                    sec_bond[j][0]=starti;
+//                    sec_bond[j][1]=endi;
+//                }
+//            }
+//	    // check to see if the residue is a helix, sheet, or some RNA 
+//	    // strand type (ignore the RNA stuff for now)
+//            if (ss=='H' || ss=='E' || ss=='<' || ss=='>') 
+//	    {
+//		starti=i;
+//	    }
+//            // otherwise, continue as if not part of a 2ndary structure
+//	    else 
+//	    {
+//		starti=-1;
+//	    }
+//        }
+//        // update prev_ss
+//	prev_ss = sec[i];
+//    }
+//    // if we hit the end of the structure and starti still == -1, then we need
+//    // to include this 2ndary structure feature
+//    if (starti >= 0) // previous SSE end
+//    {
+//        endi=i;
+//        for (j = starti; j < endi; j++)
+//        {
+//            sec_bond[j][0] = starti;
+//            sec_bond[j][1] = endi;
+//        }
+//    }
+//    // checking for single-residue 2ndary structure features; ignoring them if
+//    // found
+//    for (i = 0; i < len; i++) 
+//    {
+//	if (sec_bond[i][1]-sec_bond[i][0]==1)
+//	{
+//	    sec_bond[i][0]=sec_bond[i][1]=-1;
+//	}
+//    }
+//
+//    // sec_bond is now filled with (len x 2) ints associated with start,stop 
+//    // residues; convert it to a py::array_t<int>
+//    
+//    // define the result array object to be filled
+//    auto result = py::array_t<int>(len*2);
+//    // get the buffer regions for the array object
+//    py::buffer_info res_info = result.request();
+//    // create array filled with the pointers for the array elements
+//    auto out_ptr = static_cast <int *>(res_info.ptr);
+//
+//    // loop over dimensions of the k_nearest 2d array and update the results 
+//    // array values
+//    for (i = 0; i < len; ++i) 
+//    {
+//        for (int j = 0; j < 2; ++j)
+//	{
+//	    k = i*2 + j;
+//	    out_ptr[k] = sec_bond[i][j];
+//	}
+//    }
+//
+//    // clean up
+//    DeleteArray(&sec_bond, len);
+//
+//    return result;
+//}
 
 
 /*******************************************************************************
