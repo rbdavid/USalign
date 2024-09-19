@@ -201,16 +201,9 @@ class alnStruct {
 class alnParameters {
     public:
         // default set to -1 and then to 0 or 5 depending on mm_opt
-	int closeK_opt = 0;
-        int molec_types = -2; // -2 corresponds to a protein-protein alignment
+	int closeK_opt;
+        int molec_types; // -1*(xlen+ylen); a protein-protein alignment
 	int mm_opt; // SOI alignment switch; 5 for fNS, 6 for sNS
-	//int i_opt = 0; // > 0 if wish to apply an initial alignment
-	int a_opt = 0; // > 0 if wish normalize TMscore by avg len of structs
-	bool u_opt = false; // true if wish normalize TMscore by Lnorm_ass value
-	double Lnorm_ass = 0; // only used if u_opt = true
-	bool d_opt = false; // true if wish to use d0_scale for calc of pair weights
-	double d0_scale = 0; // only used if d_opt
-	bool fast_opt = false; // true if wish for fast but inaccurate alnment
 };
 
 
@@ -335,13 +328,13 @@ outputResults runSOIalign( alnStruct& mobile_data,
     double d0_0, TM_0;
     double d0A, d0B, d0u, d0a;
     double d0_out=5.0;
-    std::string seqM, seqxA, seqyA;// for output alignment
-    double rmsd0 = 0.0;
-    int L_ali;                // Aligned length in standard_TMscore
-    double Liden=0;
-    double TM_ali, rmsd_ali;  // TMscore and rmsd in standard_TMscore
-    int n_ali=0;
-    int n_ali8=0;
+    std::string seqM, seqxA, seqyA;	// for output alignment
+    double rmsd0;
+    int L_ali;                		// Aligned length in standard_TMscore
+    double Liden;
+    double TM_ali, rmsd_ali;  		// TMscore and rmsd in standard_TMscore
+    int n_ali;
+    int n_ali8;
     
 
     // hardcode some default parameters to avoid their implementation...
@@ -349,6 +342,12 @@ outputResults runSOIalign( alnStruct& mobile_data,
     //     SOIalign_main() call.
     int i_opt = 0;
     std::vector<std::string> sequence;
+    int a_opt = 0; 		// > 0 if wish normalize TMscore by avg len of structs
+    bool u_opt = false; 	// true if wish normalize TMscore by Lnorm_ass value
+    double Lnorm_ass;
+    bool d_opt = false; 	// true if wish to use d0_scale for calc of pair weights
+    double d0_scale;
+    bool fast_opt = false; 	// true if wish for fast but inaccurate alnment
 
     // convert input arrays to their USalign-like versions...
     int i,j,k;
@@ -415,9 +414,9 @@ outputResults runSOIalign( alnStruct& mobile_data,
 		  n_ali8,
 		  mobile_data.len, target_data.len, 
 		  sequence,
-		  parameters.Lnorm_ass, parameters.d0_scale,
+		  Lnorm_ass, d0_scale,
 		  i_opt, 
-		  parameters.a_opt, parameters.u_opt, parameters.d_opt, 
+		  a_opt, u_opt, d_opt, 
 		  force_fast_opt,
 		  parameters.molec_types, dist_list,
 		  mobile_sec_bond, target_sec_bond, parameters.mm_opt);
@@ -427,9 +426,6 @@ outputResults runSOIalign( alnStruct& mobile_data,
 
     outputResults out; // instantiate the output object
 
-    // handling the translation and rotation arrays. flatten and return as 
-    // py::array_t
-    
     // define the translation array object to be filled
     auto trans_array = py::array_t<double>(3);
     // get the buffer regions for the array object
@@ -443,21 +439,8 @@ outputResults runSOIalign( alnStruct& mobile_data,
     }
     out.translation_vector = trans_array;
 
-    // define the translation array object to be filled
-    auto rot_array = py::array_t<double>(9);
-    // get the buffer regions for the array object
-    py::buffer_info rot_info = rot_array.request();
-    // create array filled with the pointers for the array elements
-    auto rot_ptr = static_cast <double *>(rot_info.ptr);
-    // fill those elements 
-    for (i = 0; i<3; i++)
-    {
-	for (int j = 0; j<3; j++)
-	{
-	    k = i*3 + j; 
-            rot_ptr[k] = u0[i][j];
-	}
-    }
+    // gather the rotation array into a flat numpy array
+    py::array_t<double> rot_array = fill_output_array(&u0, 3, 3);
     out.rotation_matrix = rot_array;
 
     // seq results are char* so need to convert it to a std::string
