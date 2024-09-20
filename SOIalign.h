@@ -444,7 +444,9 @@ double SOI_iter(double **r1, double **r2, double **xtm, double **ytm,
         tmscore_old=tmscore;
         do_rotation(xa, xt, xlen, t, u);
         SOI_super2score(xt, ya, xlen, ylen, score, d0, score_d8);
+	cout << iteration << ", " << rmsd << ", " << tmscore << ", " << tmscore_max <<  "\n";
     }// for iteration
+    cout << iteration << ", " << rmsd << ", " << tmscore << ", " << tmscore_max<< "\n";
     
     delete []invmap;
     return tmscore_max;
@@ -611,6 +613,37 @@ int SOIalign_main(double **xa, double **ya,
     int iteration_max=(fast_opt)?2:30;
     //if (mm_opt==6) iteration_max=1;
 
+    /***********************/
+    /* verbose mode        */
+    /***********************/
+
+    cout << "PARAMETERS:\n";
+    cout << "xa[0][0] \t" << xa[0][0] << "\n";
+    cout << "ya[0][0] \t" << ya[0][0] << "\n";
+    cout << "xlen \t" << xlen << "\n";
+    cout << "ylen \t" << ylen << "\n";
+    cout << "mol_type \t" << mol_type << "\n";
+    cout << "d0_scale \t" << d0_scale << "\n";
+    cout << "i_opt \t" << i_opt << "\n";
+    cout << "a_opt \t" << a_opt << "\n";
+    cout << "u_opt \t" << u_opt << "\n";
+    cout << "d_opt \t" << d_opt << "\n";
+    cout << "mm_opt \t" << mm_opt << "\n";
+    cout << "closeK_opt \t" << closeK_opt << "\n";
+    cout << "fast_opt \t" << fast_opt << "\n";
+    cout << "iteration_max \t" << iteration_max << "\n";
+    cout << "simplify_step\t" << simplify_step << "\n";
+    cout << "score_sum_method\t" << score_sum_method << "\n";
+    cout << "D0_MIN \t" << D0_MIN << "\n";
+    cout << "Lnorm \t" << Lnorm << "\n";
+    cout << "score_d8 \t" << score_d8 << "\n";
+    cout << "d0 \t" << d0_search << "\n";
+    cout << "dcu0 \t" << dcu0 << "\n";
+    cout << "TMmax \t" << TM << "\n";
+    cout << "TM1 \t" << TM1 << "\n";
+    cout << "TM2 \t" << TM2 << "\n\n";
+
+
     /*************************************************************/
     /* initial alignment with sequence order dependent alignment */
     /*************************************************************/
@@ -652,9 +685,12 @@ int SOIalign_main(double **xa, double **ya,
     do_rotation(xa, xt, xlen, t0, u0);
     SOI_super2score(xt, ya, xlen, ylen, score, d0, score_d8);
     for (i=0;i<xlen;i++) for (j=0;j<ylen;j++) scoret[j+1][i+1]=score[i+1][j+1];
+    
+    cout << "1st SOI_iter call\n";
     TMmax=SOI_iter(r1, r2, xtm, ytm, xt, score, path, val, xa, ya,
         xlen, ylen, t0, u0, invmap0, iteration_max,
         local_d0_search, Lnorm, d0, score_d8, secx_bond, secy_bond, mm_opt, true);
+    cout << "\n2nd SOI_iter call\n";
     TM   =SOI_iter(r2, r1, ytm, xtm, yt,scoret, path, val, ya, xa,
         ylen, xlen, t0, u0, fwdmap0, iteration_max,
         local_d0_search, Lnorm, d0, score_d8, secy_bond, secx_bond, mm_opt, true);
@@ -682,6 +718,7 @@ int SOIalign_main(double **xa, double **ya,
 
         SOI_assign2super(r1, r2, xtm, ytm, xt, xa, ya,
             xlen, ylen, t, u, invmap, local_d0_search, Lnorm, d0, score_d8);
+    	cout << "\nif closeK_opt >= 3, 3rd SOI_iter call\n";
         TM=SOI_iter(r1, r2, xtm, ytm, xt, score, path, val, xa, ya,
             xlen, ylen, t, u, invmap, iteration_max,
             local_d0_search, Lnorm, d0, score_d8, secx_bond, secy_bond, mm_opt);
@@ -696,6 +733,7 @@ int SOIalign_main(double **xa, double **ya,
         soi_egs(scoret, ylen, xlen, fwdmap0, secy_bond, secx_bond, mm_opt);
         SOI_assign2super(r2, r1, ytm, xtm, yt, ya, xa,
             ylen, xlen, t, u, fwdmap0, local_d0_search, Lnorm, d0, score_d8);
+    	cout << "\nif closeK_opt >= 3, 4th SOI_iter call\n";
         TM=SOI_iter(r2, r1, ytm, xtm, yt, scoret, path, val, ya, xa, ylen, xlen, t, u,
             fwdmap0, iteration_max, local_d0_search, Lnorm, d0, score_d8,secy_bond, secx_bond, mm_opt);
         if (TM>TMmax)
@@ -939,6 +977,36 @@ int SOIalign_main(double **xa, double **ya,
         //<<rmsd0<<'\t'
         //<<100.*SO<<endl;
 
+    /***********************/
+    /* verbose mode        */
+    /***********************/
+
+    cout << "RESULTS:\n";
+    cout << "TM1 \t" << TM1 << "\n";
+    cout << "TM2 \t" << TM2 << "\n";
+    cout << "TM3 \t" << TM2 << "\n";
+    cout << "TM4 \t" << TM2 << "\n";
+    cout << "TM5 \t" << TM2 << "\n";
+    cout << "rmsd0 \t" << rmsd0 << "\n";
+    cout << "d0_out \t" << d0_out << "\n";
+    cout << "Liden \t" << Liden << "\n";
+    cout << "n_ali8 \t" << n_ali8 << "\n";
+    cout << "n_ali \t" << n_ali8 << "\n";
+    cout << "L_ali \t" << L_ali << "\n";
+    cout << "TM_ali \t" << TM_ali << "\n";
+    cout << "rmsd_ali \t" << rmsd_ali << "\n";
+    cout << "TM_0 \t" << TM_0 << "\n";
+    cout << "d0_0 \t" << d0_0 << "\n";
+    cout << "d0A \t" << d0A << "\n";
+    cout << "d0B \t" << d0B << "\n";
+    cout << "d0u \t" << d0u << "\n";
+    cout << "d0a \t" << d0a << "\n";
+    cout << "D0_MIN \t" << D0_MIN << "\n";
+    cout << "Lnorm \t" << Lnorm << "\n";
+    cout << "score_d8 \t" << score_d8 << "\n";
+    cout << "d0 \t" << d0_search << "\n";
+    cout << "dcu0 \t" << dcu0 << "\n";
+    cout << "TMmax \t" << TM << "\n";
 
     /* clean up */
     DeleteArray(&score, xlen+1);
