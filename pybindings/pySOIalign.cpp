@@ -194,6 +194,7 @@ class alnStruct {
 	std::string seq; // string, length len; holds the sequence
 	std::string sec; // string, length len; holds the 2ndary struct labels
 	int len;  // number of atoms to be aligned from structure
+        int molec_type; // -1*len; assumes all atoms are associated w/ a protein
 };
 
 
@@ -203,8 +204,7 @@ class alnParameters {
     public:
         // default set to -1 and then to 0 or 5 depending on mm_opt
 	      int closeK_opt;
-        int molec_types; // -1*(xlen+ylen); a protein-protein alignment
-      	int mm_opt; // SOI alignment switch; 5 for fNS, 6 for sNS
+	      int mm_opt; // SOI alignment switch; 5 for fNS, 6 for sNS
 };
 
 
@@ -308,14 +308,13 @@ outputResults runSOIalign( alnStruct& mobile_data,
 
 
     // prep other parameters
+    int molec_types = target_data.molec_type + mobile_data.molec_type;
+    int *invmap = new int[target_data.len+1];
+    double *dist_list = new double[target_data.len+1];
 
     // if min of len values are too large (>1500), then do fast alignment 
     // method...
     bool force_fast_opt=(std::min(mobile_data.len,target_data.len)>1500)?true:fast_opt;
-    
-    // these lines aren't gonna work...
-    int *invmap = new int[target_data.len+1];
-    double *dist_list = new double[target_data.len+1];
    
     // run the SOIalign_main function as defined in the SOIalign.cpp file,
     // for all its faults
@@ -340,7 +339,7 @@ outputResults runSOIalign( alnStruct& mobile_data,
 		  i_opt, 
 		  a_opt, u_opt, d_opt, 
 		  force_fast_opt,
-		  parameters.molec_types, dist_list,
+		  molec_types, dist_list,
 		  mobile_sec_bond, target_sec_bond, parameters.mm_opt);
 
     // gather only the necessary output and return them in the output class as
@@ -476,14 +475,14 @@ PYBIND11_MODULE(pySOIalign, m) {
 	.def_readwrite("sec_bond", &alnStruct::sec_bond)
 	.def_readwrite("seq", &alnStruct::seq)
 	.def_readwrite("sec", &alnStruct::sec)
-	.def_readwrite("len", &alnStruct::len);
+	.def_readwrite("len", &alnStruct::len)
+	.def_readwrite("molec_type", &alnStruct::molec_type);
 
     py::class_<alnParameters>(m, "alnParameters")
 	.def(py::init<int, 
 		      int, 
 		      int>())
 	.def_readwrite("closeK_opt", &alnParameters::closeK_opt)
-	.def_readwrite("molec_types", &alnParameters::molec_types)
 	.def_readwrite("mm_opt", &alnParameters::mm_opt);
 
     py::class_<outputResults>(m, "outputResults")
