@@ -78,41 +78,147 @@ def clean_logger(logger):
 ### PARSING FUNCTION
 #######################################
 
-def tri2single(resname):
-    '''
+class AAResnameMapping(enum.Enum):
+    """
+    only a subset of amino acid residue names understood by MDAnalysis:
+    https://userguide.mdanalysis.org/stable/standard_selections.html#protein-selection
+
+    !!! denotes special/ambiguous cases
+    """
+    # amino acids
+    ALA = 'A'
+    ARG = 'R'
+    ASN = 'N'
+    ASP = 'D'
+    ASX = 'B'   # !!!
+    CYS = 'C'
+    GLN = 'Q'
+    GLU = 'E'
+    GLX = 'Z'   # !!!
+    GLY = 'G'
+    HIS = 'H'   # !!!
+    HIE = 'H'   # !!!
+    HID = 'H'   # !!!
+    HIP = 'H'   # !!!
+    ILE = 'I'
+    LEU = 'L'
+    LYS = 'K'
+    MET = 'M'
+    PHE = 'F'
+    PRO = 'P'
+    SER = 'S'
+    THR = 'T'
+    TRP = 'W'
+    TYR = 'Y'
+    VAL = 'V'
+    UNK = 'X'   # !!!
+    
+
+class NAResnameMapping(enum.Enum):
+    """
+    only a subset of nucleic acid residue names understood by MDAnalysis:
+    https://userguide.mdanalysis.org/stable/standard_selections.html#nucleic-acids
+
+    !!! denotes special/ambiguous cases
+    """
+    # nucleic acids
+    ADE = 'A'
+    CYT = 'C'
+    GUA = 'G'
+    THY = 'T'
+    URA = 'U'
+    UNK = 'X'   # !!!
+
+
+def AAtri2single(resname):
+    """
     CONVERT FROM 3 TO 1 LETTER AA CODES
     Read in an amino acid's three letter code and return the aa's single 
     letter code.
-    
+
     Input:
-        :param resname: a string of length 3, any case
-    
+        :param resname: a string.upper(), associated with a name in the 
+                        AAResnameMapping Enum object
     Output:
-        :return: the single letter code of associated aa; if resname is 
-                 unexpected, returns 'X' string.
-    '''
-    return {'ALA': 'A',
-            'ARG': 'R',
-            'ASN': 'N',
-            'ASP': 'D',
-            'CYS': 'C',
-            'GLN': 'Q',
-            'GLU': 'E',
-            'GLY': 'G',
-            'HIS': 'H',
-            'HIE': 'H',
-            'HID': 'H',
-            'ILE': 'I',
-            'LEU': 'L',
-            'LYS': 'K',
-            'MET': 'M',
-            'PHE': 'F',
-            'PRO': 'P',
-            'SER': 'S',
-            'THR': 'T',
-            'TRP': 'W',
-            'TYR': 'Y',
-            'VAL': 'V'}.get(resname.upper(), 'X')
+        :return: the single letter code for the associated aa. 
+                 If resname is unexpected, returns 'X' string to denote an 
+                 unknown resname. Or an empty string, if the Enum fails for an
+                 unexpected error.
+    """
+    try: 
+        return AAResnameMapping[resname].value
+    except KeyError:
+        print(f"{resname} not in the AAResnameMapping. Returning 'X' to denote an unknown residue type.")
+        return 'X'
+    except Exception as e:
+        print(f"AAtri2single({resname}) failed unexpectedly. Returning '' to remove this {resname} from the analysis.")
+        return ''
+
+
+def AAsingle2tri(resname):
+    """
+    CONVERT FROM 1 TO 3 LETTER AA CODES
+    Read in an amino acid's single letter code and return the aa's tri letter
+    code.
+
+    !!! NOTE: There are ambiguous values in the AAResnameMapping Enum object.
+              Due to the organization of the Enum, the first entry with the 
+              value will be used.
+
+    Input:
+        :param resname: a string.upper(), associated with a value in the 
+                        AAResnameMapping Enum object
+    Output:
+        :return: the tri letter code for the associated aa. 
+                 If resname is unexpected, returns 'UNK' string to denote an 
+                 unknown resname. Or an empty string, if the Enum fails for an
+                 unexpected error.
+    """
+    try:
+        return AAResnameMapping(resname).name
+    except ValueError:
+        print(f"{resname} not in the AAResnameMapping. Returning 'UNK' to denote an unknown residue type.")
+        return 'UNK'
+    except Exception as e:
+        print(f"AAsingle2tri({resname}) failed unexpectedly. Returning '' to remove this {resname} from the analysis.")
+        return ''
+
+
+#def tri2single(resname):
+#    '''
+#    CONVERT FROM 3 TO 1 LETTER AA CODES
+#    Read in an amino acid's three letter code and return the aa's single 
+#    letter code.
+#    
+#    Input:
+#        :param resname: a string of length 3, any case
+#    
+#    Output:
+#        :return: the single letter code of associated aa; if resname is 
+#                 unexpected, returns 'X' string.
+#    '''
+#    return {'ALA': 'A',
+#            'ARG': 'R',
+#            'ASN': 'N',
+#            'ASP': 'D',
+#            'CYS': 'C',
+#            'GLN': 'Q',
+#            'GLU': 'E',
+#            'GLY': 'G',
+#            'HIS': 'H',
+#            'HIE': 'H',
+#            'HID': 'H',
+#            'ILE': 'I',
+#            'LEU': 'L',
+#            'LYS': 'K',
+#            'MET': 'M',
+#            'PHE': 'F',
+#            'PRO': 'P',
+#            'SER': 'S',
+#            'THR': 'T',
+#            'TRP': 'W',
+#            'TYR': 'Y',
+#            'VAL': 'V'}.get(resname.upper(), 'X')
 
 
 def parse_usalign_file(file_object):
@@ -444,13 +550,13 @@ def pySOIalign_prep_structure(struct_params):
     u_CAs = u.select_atoms('name CA')
     u_len = u_CAs.n_atoms
     u_CAs_coords = np.array(u_CAs.positions.flatten(),dtype=np.float64)
-    u_seq = ''.join([tri2single(a.resname) for a in u_CAs])
+    u_seq = ''.join([AAtri2single(a.resname) for a in u_CAs])
     
     # run the python bindings of the preprocessing calculations from USalign
-    u_sec = pySOIalign.make_sec_py(u_CAs_coords, u_len)
-    u_sec_bonds = pySOIalign.assign_sec_bond_py(u_sec, u_len)
+    u_sec = pySOIalign.wrap_make_sec(u_CAs_coords, u_len)
+    u_sec_bonds = pySOIalign.wrap_assign_sec_bond(u_sec, u_len)
     if closeK_opt >= 3:
-        u_neighbor_list = pySOIalign.getCloseK_py(u_cas_coords, 
+        u_neighbor_list = pySOIalign.wrap_getCloseK(u_cas_coords, 
                                                   u_len, 
                                                   closeK_opt)
     # otherwise, the neighbor list will go unused... still need to create an
@@ -548,11 +654,11 @@ if __name__ == '__main__':
     # read command line arguments.
     parser = argparse.ArgumentParser(description='Structural alignment task manager')
     # essential parameters
-    ##parser.add_argument('--pySOIalign-path', 
-    ##                    '-pySOIalign', 
-    ##                    required=True, 
-    ##                    help='global path string pointing to the directory of the pySOIalign .so file',
-    ##                    type=str)
+    parser.add_argument('--pySOIalign-path', 
+                        '-pySOIalign', 
+                        required=True, 
+                        help='global path string pointing to the directory of the pySOIalign .so file',
+                        type=str)
     parser.add_argument('--tskmgr-log-file', 
                         '-log', 
                         required=True, 
@@ -583,15 +689,15 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    #########################################
-    ##### IMPORTING SOIALIGN MODULE
-    #########################################
-    ##try:
-    ##    sys.path.insert(0, pySOIalign_path)
-    ##    import pySOIalign
-    ##except Exception as e:
-    ##    print("Failed to load pySOIalign shared file as a module. Check compilation and/or path of the .so file.", e, file=sys.stderr, flush=True)
-    ##    sys.exit(1)
+    #######################################
+    ### IMPORTING SOIALIGN MODULE
+    #######################################
+    try:
+        sys.path.insert(0, pySOIalign_path)
+        import pySOIalign
+    except Exception as e:
+        print("Failed to load pySOIalign shared file as a module. Check compilation and/or path of the .so file.", e, file=sys.stderr, flush=True)
+        sys.exit(1)
 
     #######################################
     ### 
@@ -603,13 +709,6 @@ if __name__ == '__main__':
     main_logger.info(f'Scheduler file: {args.scheduler_file}')
     main_logger.info(f'Alignments are listed in {args.alignments_list_file}.')
     main_logger.info(f'Each alignment will be performed {args.nIterations} times.')
-
-    ## unimportant for testing suite
-    #dask_parameter_string = ''
-    #for key, value in dask.config.config.items():
-    #    dask_parameter_string += f"'{key}': '{value}'\n"
-    #dask_parameter_string += '################################################################################'
-    #main_logger.info(f'\n################################################################################\nDask parameters:\n{dask_parameter_string}')
 
     # start dask client.
     # if a scheduler file is input, then the CLI is being used, where the user 
@@ -699,69 +798,63 @@ if __name__ == '__main__':
             out_file.write(f'{key},{TMscore1},{TMscore2},{RMSD},{SeqIDAli},{Len1},{Len2},{LenAlign},{avg_time:.3f},{std_time:.3f}\n')
 
 
-   ## #######################################
-   ## ### pySOIalign Functions
-   ## #######################################
+    #######################################
+    ### pySOIalign Functions
+    #######################################
 
-   ## # run the preprocessing calculations before creating the alnment futures
-   ## # so that the alnStruct objects can be handed off efficiently
-   ## preprocess_futures = client.map(pySOIalign_prep_structure,
-   ##                                 structure_closeK_list)
+    # create the alnParameters object to be fed into the alignment tasks
+    alnParameters = pySOIalign.alnParameters(int(alignment[3]), # closeK_opt
+                                             int(alignment[2])) # mm_opt
 
-   ## # prep the results_dict collection for the pySOIalign results
-   ## pySOIalign_results_dict = {}
-   ## completed = as_completed(preprocess_futures)
-   ## # loop over completed tasks
-   ## for finished_task in completed:
-   ##     # gather return values from the task
-   ##     alnStruct_obj, struct_file, closeK_opt, dt = finished_task.result()
-   ##     struct = Path(struct_file).stem
-   ##     identifier = f"pre_{struct}_{closeK_opt}"
-   ##     main_logger.info(f"Python-based preprocessing for {struct_file} finished; took {dt} seconds.")
-   ##     pySOIalign_results_dict[identifier] = {'alnStruct': alnStruct_obj,
-   ##                                            'dt': dt}
-   ## 
-   ## # creating the collection of input data for the pySOIalign.runSOIalign() 
-   ## # function; need the two alnStruct objects and an alnParameters object
-   ## alignment_tuples = []
-   ## for alignment in alignments_list:
-   ##     # get the alnStruct object associated with the mobile structure
-   ##     mobile_identifier = f"pre_{Path(alignment[0]).stem}_{alignment[3]}"
-   ##     mobile_alnStruct = pySOIalign_results_dict[mobile_identifier]['alnStruct']
-   ##     
-   ##     # get the alnStruct object associated with the target structure
-   ##     target_identifier = f"pre_{Path(alignment[1]).stem}_{alignment[3]}"
-   ##     target_alnStruct = pySOIalign_results_dict[target_identifier]['alnStruct']
-   ## 
-   ##     # create the alnParameters object to be fed into the alignment tasks
-   ##     alnParameters = pySOIalign.alnParameters(int(alignment[3]), # closeK_opt
-   ##                                              -2,    # molec_type
-   ##                                              int(alignment[2]), # mm_opt
-   ##                                              0,     # a_opt
-   ##                                              False, # u_opt
-   ##                                              0.0,   # Lnorm_ass
-   ##                                              False, # d_opt
-   ##                                              0.0,   # d0_scale
-   ##                                              False) # fast_opt
-   ##     # fill the list with tuples of the grouped input objects
-   ##     alignment_tuples.append((mobile_alnStruct,
-   ##                              target_alnStruct,
-   ##                              alnParameters,
-   ##                              Path(alignment[0]).stem,
-   ##                              Path(alignment[1]).stem,
-   ##                              alignment[3],
-   ##                              alignment[2]))
-   ## 
-   ## # create the future objects for the pySOIalign tasks
-   ## aln_futures = client.map(pySOIalign_pipeline,
-   ##                          alignment_tuples,
-   ##                          nIterations = args.nIterations,)
+    # run the preprocessing calculations before creating the alnment futures
+    # so that the alnStruct objects can be handed off efficiently
+    preprocess_futures = client.map(pySOIalign_prep_structure,
+                                    structure_closeK_list)
 
-   ## completed = as_completed(aln_futures)
-   ## # loop over completed tasks
-   ## for finished_task in completed:
-   ##     # gather return values from the task
-   ## 
+    # prep the results_dict collection for the pySOIalign results
+    pySOIalign_results_dict = {}
+    completed = as_completed(preprocess_futures)
+    # loop over completed tasks
+    for finished_task in completed:
+        # gather return values from the task
+        alnStruct_obj, struct_file, closeK_opt, dt = finished_task.result()
+        struct = Path(struct_file).stem
+        identifier = f"pre_{struct}_{closeK_opt}"
+        main_logger.info(f"Python-based preprocessing for {struct_file} finished; took {dt} seconds.")
+        pySOIalign_results_dict[identifier] = {'alnStruct': alnStruct_obj,
+                                               'dt': dt}
+    
+    # creating the collection of input data for the pySOIalign.runSOIalign() 
+    # function; need the two alnStruct objects and an alnParameters object
+    alignment_tuples = []
+    for alignment in alignments_list:
+        # get the alnStruct object associated with the mobile structure
+        mobile_identifier = f"pre_{Path(alignment[0]).stem}_{alignment[3]}"
+        mobile_alnStruct = pySOIalign_results_dict[mobile_identifier]['alnStruct']
+        
+        # get the alnStruct object associated with the target structure
+        target_identifier = f"pre_{Path(alignment[1]).stem}_{alignment[3]}"
+        target_alnStruct = pySOIalign_results_dict[target_identifier]['alnStruct']
+    
+        # fill the list with tuples of the grouped input objects
+        alignment_tuples.append((mobile_alnStruct,
+                                 target_alnStruct,
+                                 alnParameters,
+                                 Path(alignment[0]).stem,
+                                 Path(alignment[1]).stem,
+                                 alignment[3],
+                                 alignment[2]))
+    
+    # create the future objects for the pySOIalign tasks
+    aln_futures = client.map(pySOIalign_pipeline,
+                             alignment_tuples,
+                             nIterations = args.nIterations,)
+
+    completed = as_completed(aln_futures)
+    # loop over completed tasks
+    for finished_task in completed:
+        # gather return values from the task
+    
 
 
 
