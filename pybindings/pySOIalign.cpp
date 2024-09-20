@@ -109,6 +109,7 @@ std::string wrap_make_sec(py::array_t<double> coords,
 
 
 /*
+
  * a wrapper function around the original SOIalign assign_sec_bond() function
  * specifically, SOIalign.h lines 17 to 57
  */
@@ -202,8 +203,8 @@ class alnStruct {
 class alnParameters {
     public:
         // default set to -1 and then to 0 or 5 depending on mm_opt
-	int closeK_opt;
-	int mm_opt; // SOI alignment switch; 5 for fNS, 6 for sNS
+	      int closeK_opt;
+	      int mm_opt; // SOI alignment switch; 5 for fNS, 6 for sNS
 };
 
 
@@ -223,8 +224,8 @@ class outputResults {
        	double TM4, d0u; // only used if u_opt
 	double TM5, d0_scale; // only used if d_opt
 	double rmsd0; // final rmsd from Kabsch algo
-        double d0_out = 5.0; // norm d0 value; also signify mapping in sequence alignment
-	double Liden = 0;    // number of mapped residues w/ identical res type
+        double d0_out; // norm d0 value; also signify mapping in sequence alignment
+	double Liden;    // number of mapped residues w/ identical res type
         int n_ali8; // number of residues w/in d0_out
 	int L_ali;   // n residues aligned, can include d > d0 pairs...
 	double d0_mobile, d0_target; // d0 values calc'd when norming by 1 struct
@@ -249,11 +250,11 @@ outputResults runSOIalign( alnStruct& mobile_data,
     double d0_0, TM_0;
     double d0A, d0B, d0u, d0a;
     double d0_out=5.0;
-    std::string seqM, seqxA, seqyA;	// for output alignment
+    std::string seqM, seqxA, seqyA;// for output alignment
     double rmsd0;
-    int L_ali;                		// Aligned length in standard_TMscore
+    int L_ali;                // Aligned length in standard_TMscore
     double Liden;
-    double TM_ali, rmsd_ali;  		// TMscore and rmsd in standard_TMscore
+    double TM_ali, rmsd_ali;  // TMscore and rmsd in standard_TMscore
     int n_ali;
     int n_ali8;
     
