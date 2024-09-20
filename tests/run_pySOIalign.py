@@ -179,9 +179,9 @@ u_CAs_coords = np.array(u_CAs.positions.flatten(),dtype=np.float64)
 u_seq = ''.join([AAtri2single(a.resname.upper()) for a in u_CAs])
 #u_CAs_coords, u_seq = readPDB('/home/russ/Scripts/git/USalign/tests/data/2pel_chainA.pdb')
 #u_len = u_CAs_coords.shape[0]
-u_sec = pySOIalign.make_sec_py(u_CAs_coords, u_len)
-u_sec_bonds = pySOIalign.assign_sec_bond_py(u_sec, u_len)
-u_neighbor_list = pySOIalign.getCloseK_py(u_CAs_coords, u_len, closeK_opt)
+u_sec = pySOIalign.wrap_make_sec(u_CAs_coords, u_len)
+u_sec_bonds = pySOIalign.wrap_assign_sec_bond(u_sec, u_len)
+u_neighbor_list = pySOIalign.wrap_getCloseK(u_CAs_coords, u_len, closeK_opt)
 u_alnStruct = pySOIalign.alnStruct(u_CAs_coords, 
                                    u_neighbor_list, 
                                    u_sec_bonds, 
@@ -199,9 +199,9 @@ v_len = v_CAs.n_atoms
 v_seq = ''.join([AAtri2single(a.resname.upper()) for a in v_CAs])
 #v_CAs_coords, v_seq = readPDB('/home/russ/Scripts/git/USalign/tests/data/3cna_chainA.pdb')
 #v_len = v_CAs_coords.shape[0]
-v_sec = pySOIalign.make_sec_py(v_CAs_coords, v_len)
-v_sec_bonds = pySOIalign.assign_sec_bond_py(v_sec, v_len)
-v_neighbor_list = pySOIalign.getCloseK_py(v_CAs_coords, v_len, closeK_opt)
+v_sec = pySOIalign.wrap_make_sec(v_CAs_coords, v_len)
+v_sec_bonds = pySOIalign.wrap_assign_sec_bond(v_sec, v_len)
+v_neighbor_list = pySOIalign.wrap_getCloseK(v_CAs_coords, v_len, closeK_opt)
 v_alnStruct = pySOIalign.alnStruct(v_CAs_coords, 
                                    v_neighbor_list, 
                                    v_sec_bonds, 
