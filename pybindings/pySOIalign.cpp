@@ -469,6 +469,7 @@ PYBIND11_MODULE(pySOIalign, m) {
 		      py::array_t<int>, 
 		      std::string, 
 		      std::string, 
+		      int, 
 		      int>())
 	.def_readwrite("coords", &alnStruct::coords)
 	.def_readwrite("k_nearest", &alnStruct::k_nearest)
@@ -480,7 +481,6 @@ PYBIND11_MODULE(pySOIalign, m) {
 
     py::class_<alnParameters>(m, "alnParameters")
 	.def(py::init<int, 
-		      int, 
 		      int>())
 	.def_readwrite("closeK_opt", &alnParameters::closeK_opt)
 	.def_readwrite("mm_opt", &alnParameters::mm_opt);
