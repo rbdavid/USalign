@@ -1,8 +1,17 @@
+
+#vpath pybindings/
+#.ONESHELL:
+#
+#source_path := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
 CC=g++
 MINGW=x86_64-w64-mingw32-g++ -static
 CFLAGS=-O3 #-ffast-math
 LDFLAGS=#-static# -lm
-PROGRAM=qTMclust USalign TMalign TMscore MMalign se pdb2xyz xyz_sfetch pdb2fasta pdb2ss NWalign HwRMSD cif2pdb pdbAtomName addChainID
+PROGRAM=qTMclust USalign TMalign TMscore MMalign se pdb2xyz xyz_sfetch pdb2fasta pdb2ss NWalign HwRMSD cif2pdb pdbAtomName addChainID pySOIalign
+
+PYBINDINGFLAGS1=$(python3 -m pybind11 --includes) 
+PYBINDINGFLAGS2=(python3-config --extension-suffix)
 
 all: ${PROGRAM}
 
@@ -53,6 +62,11 @@ pdbAtomName: pdbAtomName.cpp pstream.h
 
 addChainID: addChainID.cpp pstream.h
 	${CC} ${CFLAGS} $@.cpp -o $@ ${LDFLAGS}
+
+#pySOIalign: 
+#	echo ${source_path}
+#	conda activate basic
+#	c++ -O3 -Wall -ffast-math -fvisibility=hidden -fPIC -shared -I "${source_path}" ${PYBINDINGSFLAGS1} /home/russ/Scripts/git/USalign/pybindings/$@.cpp -o $@${PYBINDINGSFLAGS2}
 
 clean:
 	rm -f ${PROGRAM}
