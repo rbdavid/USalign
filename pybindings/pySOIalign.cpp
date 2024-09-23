@@ -203,8 +203,8 @@ class alnStruct {
 class alnParameters {
     public:
         // default set to -1 and then to 0 or 5 depending on mm_opt
-	      int closeK_opt;
-	      int mm_opt; // SOI alignment switch; 5 for fNS, 6 for sNS
+	int closeK_opt;
+	int mm_opt; // SOI alignment switch; 5 for fNS, 6 for sNS
 };
 
 
