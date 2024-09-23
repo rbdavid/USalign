@@ -1,21 +1,3 @@
-# executable files created w/in the repo
-preprocessing_tests
-HwRMSD
-MMalign
-NWalign
-TMalign
-TMscore
-USalign
-addChainID
-cif2pdb
-pdb2fasta
-pdb2ss
-pdb2xyz
-pdbAtomName
-qTMclust
-se
-xyz_sfetch
-
 # compiled python code
 *.pyc
 
@@ -27,6 +9,7 @@ xyz_sfetch
 *so
 
 # binary executables
+preprocessing_tests
 addChainID
 cif2pdb
 TMalign
