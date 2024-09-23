@@ -1,3 +1,6 @@
+# ignore build directory
+build/
+
 # compiled python code
 *.pyc
 
